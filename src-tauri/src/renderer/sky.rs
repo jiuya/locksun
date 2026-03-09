@@ -114,6 +114,41 @@ pub fn render_sun(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) {
     }
 }
 
+/// 地面エリア（下 25%）と地平線グローを描画する
+pub fn render_ground(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) {
+    let colors = SkyColors::from_altitude(pos.altitude);
+    let (w, h) = (cfg.width, cfg.height);
+
+    // 地平線のY座標: 画像の上から 75% の位置
+    let ground_y = (h as f64 * 0.75) as u32;
+
+    // 地平線グローのフェード幅 (px)
+    let glow_width: u32 = (h as f64 * 0.04).max(8.0) as u32;
+
+    for y in 0..h {
+        for x in 0..w {
+            if y >= ground_y {
+                // 地面エリア: 地面色で塗りつぶす
+                base.put_pixel(x, y, colors.ground.to_rgb());
+            } else if y + glow_width >= ground_y {
+                // 地平線グロー帯: horizon 色を alpha ブレンドして境界を滑らかにする
+                let dist = (ground_y - y) as f64; // ground_y までの距離 (px)
+                let t = 1.0 - (dist / glow_width as f64).clamp(0.0, 1.0);
+                // ガウス的減衰で自然なグロー
+                let alpha = (t * t) * 0.75;
+                let base_pixel = base.get_pixel(x, y).0;
+                let h_color = colors.horizon;
+                let blended = Rgb([
+                    blend(base_pixel[0], h_color.0, alpha),
+                    blend(base_pixel[1], h_color.1, alpha),
+                    blend(base_pixel[2], h_color.2, alpha),
+                ]);
+                base.put_pixel(x, y, blended);
+            }
+        }
+    }
+}
+
 /// 星を描画する
 /// `altitude < -6.0`（市民薄明以前）のときに呼び出すことを想定しているが、
 /// `altitude >= -6.0` で呼んだ場合は `night_depth` が 0 になり何も描画しない（安全）。
