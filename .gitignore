@@ -22,3 +22,4 @@ Thumbs.db
 
 # ログ
 *.log
+src-tauri/gen/
