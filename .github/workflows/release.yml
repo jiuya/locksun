@@ -1,0 +1,221 @@
+name: Auto Release
+
+# CI ワークフローが main ブランチで成功した後にのみ実行する
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+# ─────────────────────────────────────────────
+# ジョブ 1: Conventional Commits を解析してバージョンバンプを決定
+# ─────────────────────────────────────────────
+jobs:
+  decide:
+    name: Decide version bump
+    runs-on: ubuntu-latest
+    # CI が失敗していたらスキップ
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      should_release: ${{ steps.bump.outputs.should_release }}
+      new_version: ${{ steps.bump.outputs.new_version }}
+      bump_type: ${{ steps.bump.outputs.bump_type }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyze commits and decide version bump
+        id: bump
+        shell: bash
+        run: |
+          # ── 最新タグを取得 ──────────────────────────────────────
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous tag. Analyzing all commits..."
+            COMMITS=$(git log --format="%s" HEAD)
+          else
+            echo "Last tag: $LAST_TAG"
+            COMMITS=$(git log --format="%s" "${LAST_TAG}..HEAD")
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            echo "No new commits since last tag. Skipping release."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # ── Conventional Commits を解析 ─────────────────────────
+          # BREAKING CHANGE / ! → major
+          # feat:             → minor
+          # fix: / perf: / refactor: / build: → patch
+          # それ以外           → リリースしない
+          BUMP="none"
+          while IFS= read -r msg; do
+            echo "  > $msg"
+            if echo "$msg" | grep -qE "(BREAKING[[:space:]]CHANGE|^[a-z]+(\([^)]*\))?!:)"; then
+              BUMP="major"
+              break
+            elif echo "$msg" | grep -qE "^feat(\([^)]*\))?:"; then
+              [ "$BUMP" != "major" ] && BUMP="minor"
+            elif echo "$msg" | grep -qE "^(fix|perf|refactor|build)(\([^)]*\))?:"; then
+              [ "$BUMP" = "none" ] && BUMP="patch"
+            fi
+          done <<< "$COMMITS"
+
+          echo "Version bump decision: $BUMP"
+
+          if [ "$BUMP" = "none" ]; then
+            echo "No releasable commits. Skipping."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # ── Cargo.toml の現バージョンを取得してインクリメント ────
+          CURRENT=$(grep '^version' src-tauri/Cargo.toml | head -1 \
+                    | sed 's/version[[:space:]]*=[[:space:]]*"\([^"]*\)"/\1/')
+          IFS='.' read -ra PARTS <<< "$CURRENT"
+          MAJOR="${PARTS[0]}"
+          MINOR="${PARTS[1]}"
+          PATCH="${PARTS[2]}"
+
+          if   [ "$BUMP" = "major" ]; then NEW="$((MAJOR + 1)).0.0"
+          elif [ "$BUMP" = "minor" ]; then NEW="${MAJOR}.$((MINOR + 1)).0"
+          else                             NEW="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+
+          echo "Version: $CURRENT → $NEW  (bump=$BUMP)"
+          echo "should_release=true"  >> "$GITHUB_OUTPUT"
+          echo "new_version=$NEW"     >> "$GITHUB_OUTPUT"
+          echo "bump_type=$BUMP"      >> "$GITHUB_OUTPUT"
+
+  # ─────────────────────────────────────────────
+  # ジョブ 2: バージョン更新 → タグ → Tauri リリースビルド
+  # ─────────────────────────────────────────────
+  release:
+    name: Build & Release
+    needs: decide
+    if: needs.decide.outputs.should_release == 'true'
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # バージョンバンプ後のコミット push に使用
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # ── バージョンファイルを一括更新 ──────────────────────────
+      - name: Update version in project files
+        shell: bash
+        env:
+          NEW_VERSION: ${{ needs.decide.outputs.new_version }}
+        run: |
+          # src-tauri/Cargo.toml — [package] セクションの最初の version のみを更新
+          node -e "
+            const fs = require('fs');
+            const v = process.env.NEW_VERSION;
+            let t = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+            t = t.replace(/^version = \"\d+\.\d+\.\d+\"/, \`version = \"\${v}\"\`);
+            fs.writeFileSync('src-tauri/Cargo.toml', t);
+          "
+
+          # package.json
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = process.env.NEW_VERSION;
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          # src-tauri/tauri.conf.json
+          node -e "
+            const fs = require('fs');
+            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            conf.version = process.env.NEW_VERSION;
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+          "
+
+          echo "All version files updated to ${NEW_VERSION}"
+
+      # ── バージョンバンプをコミットしてタグを作成 ──────────────
+      - name: Commit and push version bump
+        shell: bash
+        env:
+          NEW_VERSION: ${{ needs.decide.outputs.new_version }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src-tauri/Cargo.toml package.json src-tauri/tauri.conf.json
+          git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
+          git tag "v${NEW_VERSION}"
+          git push origin main
+          git push origin "v${NEW_VERSION}"
+
+      # ── リリースノートを生成 ──────────────────────────────────
+      - name: Generate release notes
+        id: notes
+        shell: bash
+        env:
+          NEW_VERSION: ${{ needs.decide.outputs.new_version }}
+          BUMP_TYPE: ${{ needs.decide.outputs.bump_type }}
+        run: |
+          # バンプコミット（直前のコミット）を除いたログ
+          PREV_TAG=$(git describe --tags --abbrev=0 "v${NEW_VERSION}^" 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            LOG=$(git log --format="- %s" HEAD~1)
+          else
+            LOG=$(git log --format="- %s" "${PREV_TAG}..HEAD~1")
+          fi
+
+          # bump_type の日本語ラベル
+          case "$BUMP_TYPE" in
+            major) LABEL="メジャー (破壊的変更あり)" ;;
+            minor) LABEL="マイナー (新機能追加)" ;;
+            *)     LABEL="パッチ (バグ修正・改善)" ;;
+          esac
+
+          {
+            echo "body<<EOF"
+            echo "## Locksun v${NEW_VERSION}"
+            echo ""
+            echo "**バージョンアップ種別**: ${LABEL}"
+            echo ""
+            echo "### 変更内容"
+            echo "${LOG}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # ── Tauri ビルド + GitHub Releases に公開 ─────────────────
+      - name: Build Tauri app and publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: "v${{ needs.decide.outputs.new_version }}"
+          releaseName: "Locksun v${{ needs.decide.outputs.new_version }}"
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: false
+          prerelease: false
