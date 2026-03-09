@@ -26,8 +26,8 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # 画像生成
 image = { version = "0.25", default-features = false, features = [
-	"png",
-	"jpeg",
+"png",
+"jpeg",
 ] }
 
 # base64 エンコード（プレビュー画像転送用）

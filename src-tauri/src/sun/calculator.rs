@@ -204,15 +204,21 @@ mod tests {
         let sr = times.sunrise.unwrap();
         let ss = times.sunset.unwrap();
 
-        // 日の出: 5時台後半かで6時台前半が期待範囲
+        // CI の ローカルタイムゾーンに依存しないよう JST (+09:00) に変換して検証する
+        let jst_tz = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+        let sr_jst = sr.with_timezone(&jst_tz);
+        let ss_jst = ss.with_timezone(&jst_tz);
+
+        // 日の出: 5時台後半か6時台前半が期待範囲
         assert!(
-            (sr.hour() == 5 && sr.minute() >= 50) || (sr.hour() == 6 && sr.minute() <= 15),
-            "日の出 {sr} が期待範囲外"
+            (sr_jst.hour() == 5 && sr_jst.minute() >= 50)
+                || (sr_jst.hour() == 6 && sr_jst.minute() <= 15),
+            "日の出 {sr_jst} が期待範囲外"
         );
-        // 日の入り: 17時引れが期待範囲
+        // 日の入り: 17時台後半が期待範囲
         assert!(
-            ss.hour() == 17 && ss.minute() >= 40,
-            "日の入り {ss} が期待範囲外"
+            ss_jst.hour() == 17 && ss_jst.minute() >= 40,
+            "日の入り {ss_jst} が期待範囲外"
         );
     }
 
