@@ -1,7 +1,26 @@
 // src/api/tauri_commands.ts
 // Tauri バックエンドコマンドの型付きラッパー
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+
+// Tauri webview が IPC ブリッジを注入したかを確認するためのグローバル宣言
+declare global {
+  interface Window {
+    __TAURI_INTERNALS__?: unknown;
+  }
+}
+
+// Tauri ウィンドウ外（通常ブラウザ）で開いた場合に分かりやすいエラーを出す
+function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (typeof window.__TAURI_INTERNALS__ === "undefined") {
+    return Promise.reject(
+      new Error(
+        `Tauri IPC が利用できません。ブラウザではなく Tauri アプリウィンドウで開いてください。(cmd: ${cmd})`
+      )
+    );
+  }
+  return tauriInvoke<T>(cmd, args);
+}
 
 // ---------------------------------------------------------------
 // 型定義（src-tauri/src/commands/mod.rs と対応）

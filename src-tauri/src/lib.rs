@@ -9,6 +9,7 @@ pub mod renderer;
 pub mod scheduler;
 pub mod sun;
 
+use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -20,6 +21,9 @@ pub fn run() {
     env_logger::init();
 
     tauri::Builder::default()
+        .manage(commands::AppState {
+            force_update: Mutex::new(false),
+        })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -27,7 +31,11 @@ pub fn run() {
         ))
         .setup(|app| {
             // アプリ起動時はウィンドウを非表示（トレイ常駐）
+            // デバッグビルド時はすぐに表示する
             if let Some(window) = app.get_webview_window("settings") {
+                #[cfg(debug_assertions)]
+                window.show()?;
+                #[cfg(not(debug_assertions))]
                 window.hide()?;
             }
 
@@ -44,7 +52,7 @@ pub fn run() {
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
-                .menu_on_left_click(false)
+                .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open_settings" => {
                         if let Some(window) = app.get_webview_window("settings") {

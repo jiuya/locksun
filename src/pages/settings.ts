@@ -88,7 +88,17 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
     </form>
   `;
 
-  await loadAndBindConfig();
+  try {
+    await loadAndBindConfig();
+  } catch (e) {
+    console.error("設定の読み込みに失敗しました:", e);
+    const status = document.getElementById("status-msg");
+    if (status) {
+      status.textContent = `⚠️ 設定読み込み失敗: ${e}`;
+      status.className = "status-msg error";
+    }
+  }
+
   await refreshPreview();
   await refreshSunInfo();
 

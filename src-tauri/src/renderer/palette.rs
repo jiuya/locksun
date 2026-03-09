@@ -5,7 +5,6 @@
 // 中間値は線形補間により自動計算される
 
 use image::Rgb;
-use serde::{Deserialize, Serialize};
 
 /// RGB カラー (0-255)
 #[derive(Debug, Clone, Copy)]

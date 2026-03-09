@@ -6,7 +6,7 @@
 use crate::{config, lockscreen, renderer, sun::SunCalculator};
 use chrono::Local;
 use std::path::PathBuf;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::time::{sleep, Duration};
 
 /// バックグラウンドで永続的にスケジューラーを実行する

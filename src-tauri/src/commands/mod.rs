@@ -3,13 +3,13 @@
 // フロントエンド (TypeScript) から invoke() で呼び出せる関数群
 
 use crate::{
-    config, lockscreen, scheduler,
+    config,
     sun::{SunCalculator, SunPosition, SunTimes},
 };
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::{AppHandle, State};
+use tauri::State;
 
 /// アプリ共有状態
 pub struct AppState {

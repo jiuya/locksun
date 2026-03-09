@@ -15,8 +15,8 @@ pub fn render_sky(pos: &SunPosition, cfg: &ImageConfig) -> RgbImage {
     for (_, y, pixel) in img.enumerate_pixels_mut() {
         // y=0 が天頂, y=h が地平線
         let t = y as f64 / h as f64;
-        // べき乗で地平線付近に集中させる
-        let t_curved = t.powf(0.6);
+        // べき乗で地平線付近に色変化を集中させる（指数 > 1.0 → 天頂は天頂色、下端で急変）
+        let t_curved = t.powf(2.0);
         *pixel = colors.zenith.lerp(colors.horizon, t_curved).to_rgb();
     }
 
@@ -34,13 +34,13 @@ pub fn render_sun(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) {
     let (w, h) = (cfg.width, cfg.height);
 
     // 画面上の太陽位置を算出
-    // 高度角を垂直位置に変換（0°=地平線=h px, 90°=天頂=0 px）
-    let sun_y = h as f64 * (1.0 - ((pos.altitude + 5.0) / 95.0).clamp(0.0, 1.0));
+    // 高度角を垂直位置に変換（0°=地平線=h px, 90°≈天頂=0 px）
+    let sun_y = h as f64 * (1.0 - (pos.altitude / 95.0).clamp(0.0, 1.0));
     // 方位角を水平位置に変換
     let sun_x = w as f64 * (pos.azimuth / 360.0);
 
-    let halo_radius = (w.min(h) as f64 * 0.25) as i32;
-    let disk_radius = (w.min(h) as f64 * 0.025).max(8.0) as i32;
+    let halo_radius: i32 = (w.min(h) as f64 * 0.25) as i32;
+    let disk_radius: i32 = (w.min(h) as f64 * 0.025).max(8.0) as i32;
 
     let cx = sun_x as i32;
     let cy = sun_y as i32;
