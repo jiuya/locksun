@@ -37,6 +37,8 @@ pub struct SkyColors {
     pub sun_halo: Color,
     /// 太陽本体の色
     pub sun_disk: Color,
+    /// 地面の色
+    pub ground: Color,
     /// 環境光の強度 (0.0-1.0)
     pub ambient: f64,
 }
@@ -54,6 +56,7 @@ impl SkyColors {
                     horizon: Color(5, 5, 25),
                     sun_halo: Color(0, 0, 0),
                     sun_disk: Color(0, 0, 0),
+                    ground: Color(5, 5, 20),
                     ambient: 0.0,
                 },
             ),
@@ -65,6 +68,7 @@ impl SkyColors {
                     horizon: Color(40, 20, 60),
                     sun_halo: Color(80, 30, 20),
                     sun_disk: Color(80, 30, 20),
+                    ground: Color(20, 10, 35),
                     ambient: 0.05,
                 },
             ),
@@ -76,6 +80,7 @@ impl SkyColors {
                     horizon: Color(200, 80, 20),
                     sun_halo: Color(255, 120, 0),
                     sun_disk: Color(255, 180, 50),
+                    ground: Color(60, 25, 30),
                     ambient: 0.2,
                 },
             ),
@@ -87,6 +92,7 @@ impl SkyColors {
                     horizon: Color(255, 140, 30),
                     sun_halo: Color(255, 180, 60),
                     sun_disk: Color(255, 240, 100),
+                    ground: Color(60, 35, 15),
                     ambient: 0.6,
                 },
             ),
@@ -98,6 +104,7 @@ impl SkyColors {
                     horizon: Color(180, 210, 240),
                     sun_halo: Color(255, 240, 180),
                     sun_disk: Color(255, 255, 200),
+                    ground: Color(40, 45, 35),
                     ambient: 0.9,
                 },
             ),
@@ -109,6 +116,7 @@ impl SkyColors {
                     horizon: Color(130, 190, 240),
                     sun_halo: Color(255, 255, 220),
                     sun_disk: Color(255, 255, 245),
+                    ground: Color(35, 50, 30),
                     ambient: 1.0,
                 },
             ),
@@ -120,6 +128,7 @@ impl SkyColors {
                     horizon: Color(100, 160, 220),
                     sun_halo: Color(255, 255, 230),
                     sun_disk: Color(255, 255, 255),
+                    ground: Color(40, 55, 35),
                     ambient: 1.0,
                 },
             ),
@@ -145,6 +154,7 @@ impl SkyColors {
                     horizon: c0.horizon.lerp(c1.horizon, t),
                     sun_halo: c0.sun_halo.lerp(c1.sun_halo, t),
                     sun_disk: c0.sun_disk.lerp(c1.sun_disk, t),
+                    ground: c0.ground.lerp(c1.ground, t),
                     ambient: c0.ambient + (c1.ambient - c0.ambient) * t,
                 };
             }
@@ -170,4 +180,18 @@ mod tests {
         assert!(c.zenith.2 > c.zenith.0, "昼間の天頂は青いはず");
         assert!(c.ambient > 0.9);
     }
+
+    #[test]
+    fn test_ground_color_changes_with_altitude() {
+        let night = SkyColors::from_altitude(-20.0);
+        let midday = SkyColors::from_altitude(60.0);
+        // 夜の地面は昼より暗いはず
+        let night_brightness = night.ground.0 as u16 + night.ground.1 as u16 + night.ground.2 as u16;
+        let day_brightness = midday.ground.0 as u16 + midday.ground.1 as u16 + midday.ground.2 as u16;
+        assert!(night_brightness < day_brightness, "夜の地面は昼より暗いはず");
+        // 昼間の地面は緑成分が赤・青より大きいはず
+        assert!(midday.ground.1 > midday.ground.0, "昼の地面は緑成分が赤より大きいはず");
+        assert!(midday.ground.1 > midday.ground.2, "昼の地面は緑成分が青より大きいはず");
+    }
 }
+
