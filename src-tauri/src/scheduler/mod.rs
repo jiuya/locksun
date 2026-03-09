@@ -15,7 +15,28 @@ pub async fn start(app: AppHandle) {
 
     loop {
         if let Err(e) = run_once(&app) {
-            log::error!("更新サイクルエラー: {e:#}");
+            // Windows のみ: 権限エラーを検知してトレイ通知する（1回のみ）
+            #[cfg(target_os = "windows")]
+            {
+                if !lockscreen::check_permission() {
+                    log::warn!("権限エラーを検出: {e:#}");
+                    let state = app.state::<crate::commands::AppState>();
+                    let mut notified = state.permission_notified.lock().unwrap();
+                    if !*notified {
+                        *notified = true;
+                        if let Some(tray) = app.tray_by_id("main") {
+                            let _ = tray.set_tooltip(Some("⚠️ Locksun: 管理者権限が必要です"));
+                        }
+                        log::warn!("権限エラー: トレイ通知を更新しました");
+                    }
+                } else {
+                    log::error!("更新サイクルエラー: {e:#}");
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                log::error!("更新サイクルエラー: {e:#}");
+            }
         }
 
         let interval = config::load()

@@ -14,6 +14,8 @@ use tauri::State;
 /// アプリ共有状態
 pub struct AppState {
     pub force_update: Mutex<bool>,
+    /// 権限エラー通知済みフラグ（重複通知を防ぐ）
+    pub permission_notified: Mutex<bool>,
 }
 
 /// 設定を取得する
