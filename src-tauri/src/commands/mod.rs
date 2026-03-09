@@ -8,13 +8,15 @@ use crate::{
 };
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::State;
 use tokio::sync::Notify;
 
 /// アプリ共有状態
 pub struct AppState {
     pub update_notify: Arc<Notify>,
+    /// 権限エラー通知済みフラグ（重複通知を防ぐ）
+    pub permission_notified: Mutex<bool>,
 }
 
 /// 設定を取得する
