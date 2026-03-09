@@ -1,1 +1,0 @@
-{"default":{"identifier":"default","description":"Default capabilities for Locksun","local":true,"windows":["settings"],"permissions":["core:default","shell:default","autostart:default"],"platforms":["macOS","windows","linux"]}}
