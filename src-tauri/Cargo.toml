@@ -1,0 +1,62 @@
+[package]
+name = "locksun"
+version = "0.1.0"
+description = "Windows lock screen solar simulation"
+authors = ["locksun"]
+edition = "2021"
+
+[lib]
+name = "locksun_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-ico", "image-png"] }
+tauri-plugin-shell = "2"
+tauri-plugin-autostart = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# 時刻・日付
+chrono = { version = "0.4", features = ["serde"] }
+
+# 画像生成
+image = { version = "0.25", default-features = false, features = [
+	"png",
+	"jpeg",
+] }
+
+# Windows API
+[target.'cfg(target_os = "windows")'.dependencies]
+winreg = "0.52"
+windows = { version = "0.58", features = [
+	"Win32_Foundation",
+	"Win32_System_Registry",
+	"Win32_UI_Shell",
+] }
+
+# base64 エンコード（プレビュー画像転送用）
+base64 = "0.22"
+
+# パス解決
+dirs = "5"
+
+# ロギング
+log = "0.4"
+env_logger = "0.11"
+
+# エラーハンドリング
+thiserror = "2"
+anyhow = "1"
+
+# 非同期
+tokio = { version = "1", features = ["full"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true

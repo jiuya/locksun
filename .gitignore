@@ -1,0 +1,24 @@
+# Rust
+target/
+Cargo.lock
+
+# Node
+node_modules/
+dist/
+
+# ユーザー設定（機密情報を含む可能性あり）
+config/user_settings.toml
+
+# Tauri ビルド成果物
+src-tauri/target/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# ログ
+*.log

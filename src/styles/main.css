@@ -1,0 +1,169 @@
+/* src/styles/main.css */
+
+:root {
+  --bg:         #1a1a2e;
+  --surface:    #16213e;
+  --surface2:   #0f3460;
+  --accent:     #e94560;
+  --accent2:    #f5a623;
+  --text:       #e0e0e0;
+  --text-muted: #888;
+  --radius:     8px;
+  --shadow:     0 2px 12px rgba(0,0,0,0.4);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* ヘッダー */
+.app-header {
+  text-align: center;
+  padding: 16px 0 8px;
+}
+.app-header h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+/* プレビュー */
+.preview-section {
+  margin: 12px 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.sky-preview {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sky-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.preview-loading,
+.preview-error {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.sun-info {
+  background: rgba(0,0,0,0.4);
+  padding: 6px 12px;
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+/* フォーム */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.form-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+.form-section h2 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--accent2);
+}
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.field-row label {
+  min-width: 100px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.field-row input[type="text"],
+.field-row input[type="number"],
+.field-row select {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 6px 8px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field-row input:focus,
+.field-row select:focus {
+  border-color: var(--accent2);
+}
+.checkbox-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  min-width: unset;
+  color: var(--text);
+}
+
+/* ボタン */
+.form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.btn {
+  padding: 8px 20px;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.85; }
+.btn-primary   { background: var(--accent);  color: #fff; }
+.btn-secondary { background: var(--surface2); color: var(--text); }
+
+/* ステータスメッセージ */
+.status-msg {
+  text-align: right;
+  font-size: 0.82rem;
+  min-height: 1.2em;
+}
+.status-msg.success { color: #4caf50; }
+.status-msg.error   { color: var(--accent); }

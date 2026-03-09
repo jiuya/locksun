@@ -1,0 +1,19 @@
+# デフォルト設定値（このファイルはリポジトリに含まれます）
+# ユーザー設定は config/user_settings.toml に保存されます
+
+[location]
+latitude = 35.6895
+longitude = 139.6917
+name = "東京"
+
+[update]
+interval_secs = 300
+
+[image]
+width = 1920
+height = 1080
+show_stars = true
+show_clouds = false
+
+[behavior]
+autostart = false
