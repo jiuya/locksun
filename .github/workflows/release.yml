@@ -168,11 +168,22 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # core.autocrlf の影響でステージ後に差分なしになるのを防ぐ
+          git config core.autocrlf false
           git add src-tauri/Cargo.toml package.json src-tauri/tauri.conf.json
-          git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
-          git tag "v${NEW_VERSION}"
-          git push origin main
-          git push origin "v${NEW_VERSION}"
+          if git diff --cached --quiet; then
+            echo "Version files unchanged (already at ${NEW_VERSION}). Skipping commit."
+          else
+            git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
+            git push origin main
+          fi
+          # タグが既に存在しない場合のみ作成・push
+          if git rev-parse "v${NEW_VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${NEW_VERSION} already exists. Skipping tag creation."
+          else
+            git tag "v${NEW_VERSION}"
+            git push origin "v${NEW_VERSION}"
+          fi
 
       # ── リリースノートを生成 ──────────────────────────────────
       - name: Generate release notes
