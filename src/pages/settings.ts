@@ -145,6 +145,19 @@ async function refreshSunInfo(): Promise<void> {
   }
 }
 
+function validateConfig(cfg: AppConfig): string | null {
+  if (isNaN(cfg.location.latitude) || cfg.location.latitude < -90 || cfg.location.latitude > 90) {
+    return "緯度は -90 〜 90 の数値を入力してください";
+  }
+  if (isNaN(cfg.location.longitude) || cfg.location.longitude < -180 || cfg.location.longitude > 180) {
+    return "経度は -180 〜 180 の数値を入力してください";
+  }
+  if (!cfg.location.name.trim()) {
+    return "場所の名前を入力してください";
+  }
+  return null;
+}
+
 async function onSave(e: SubmitEvent): Promise<void> {
   e.preventDefault();
   const status = document.getElementById("status-msg")!;
@@ -168,6 +181,14 @@ async function onSave(e: SubmitEvent): Promise<void> {
       autostart: (document.getElementById("autostart") as HTMLInputElement).checked,
     },
   };
+
+  const validationError = validateConfig(cfg);
+  if (validationError !== null) {
+    status.textContent = `⚠️ ${validationError}`;
+    status.className   = "status-msg error";
+    setTimeout(() => { status.textContent = ""; }, 3000);
+    return;
+  }
 
   try {
     await saveConfig(cfg);
