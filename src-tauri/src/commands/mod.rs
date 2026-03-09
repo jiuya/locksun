@@ -8,12 +8,13 @@ use crate::{
 };
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use std::sync::Arc;
 use tauri::State;
+use tokio::sync::Notify;
 
 /// アプリ共有状態
 pub struct AppState {
-    pub force_update: Mutex<bool>,
+    pub update_notify: Arc<Notify>,
 }
 
 /// 設定を取得する
@@ -64,8 +65,7 @@ pub fn preview_image() -> Result<String, String> {
 
 /// 即時更新をトリガーする（トレイメニューから呼ばれる）
 pub fn trigger_update(state: State<AppState>) {
-    let mut flag = state.force_update.lock().unwrap();
-    *flag = true;
+    state.update_notify.notify_one();
 }
 
 /// フロントエンドに返すレスポンス型
