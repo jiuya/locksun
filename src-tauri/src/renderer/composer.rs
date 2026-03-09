@@ -1,7 +1,7 @@
 // src-tauri/src/renderer/composer.rs
 // 各レイヤーを合成して最終画像を生成する
 
-use super::sky::{render_sky, render_sun};
+use super::sky::{render_clouds, render_sky, render_sun};
 use crate::config::ImageConfig;
 use crate::sun::SunPosition;
 use anyhow::Result;
@@ -16,7 +16,11 @@ pub fn compose(pos: &SunPosition, cfg: &ImageConfig) -> Result<RgbImage> {
     render_sun(pos, cfg, &mut img);
 
     // TODO Layer 3: 星（夜間, cfg.show_stars が true の場合）
-    // TODO Layer 4: 雲エフェクト（cfg.show_clouds が true の場合）
+
+    // Layer 4: 雲エフェクト（cfg.show_clouds が true の場合）
+    if cfg.show_clouds {
+        render_clouds(pos, cfg, &mut img);
+    }
 
     Ok(img)
 }
