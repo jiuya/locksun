@@ -3,7 +3,7 @@
 // - 設定された interval_secs ごとに画像を再生成・適用する
 // - アプリ設定の変更を検知して即時更新する
 
-use crate::{config, lockscreen, renderer, sun::SunCalculator};
+use crate::{commands::AppState, config, lockscreen, renderer, sun::SunCalculator};
 use chrono::Local;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
@@ -13,6 +13,8 @@ use tokio::time::{sleep, Duration};
 pub async fn start(app: AppHandle) {
     log::info!("スケジューラー開始");
 
+    let notify = app.state::<AppState>().update_notify.clone();
+
     loop {
         if let Err(e) = run_once(&app) {
             log::error!("更新サイクルエラー: {e:#}");
@@ -21,9 +23,16 @@ pub async fn start(app: AppHandle) {
         let interval = config::load()
             .map(|c| c.update.interval_secs)
             .unwrap_or(300);
+        let interval = interval.max(30);
 
         log::debug!("次回更新まで {interval} 秒待機");
-        sleep(Duration::from_secs(interval)).await;
+
+        tokio::select! {
+            _ = sleep(Duration::from_secs(interval)) => {},
+            _ = notify.notified() => {
+                log::info!("即時更新トリガー");
+            },
+        }
     }
 }
 
