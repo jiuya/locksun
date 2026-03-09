@@ -1,4 +1,5 @@
 # Locksun
+[![Auto Release](https://github.com/jiuya/locksun/actions/workflows/release.yml/badge.svg)](https://github.com/jiuya/locksun/actions/workflows/release.yml)
 
 Windowsのロックスクリーン画像を、現在時刻と位置情報に基づく太陽の動きでリアルタイムに変化させる常駐アプリです。
 
@@ -72,3 +73,5 @@ cargo test
 ## ライセンス
 
 MIT
+
+
