@@ -1,10 +1,15 @@
 // src-tauri/src/renderer/sky.rs
 // 空のグラデーション背景を生成する
+//
+// render_sky: Preetham / Perez 大気散乱モデルで物理ベースの空を描画する
+// その他レイヤー（地面, 太陽, 星, 雲）は従来通り
 
 use super::palette::{Color, SkyColors};
+use super::preetham::{PreethamSky, DEFAULT_TURBIDITY};
 use crate::config::ImageConfig;
 use crate::sun::SunPosition;
 use image::{ImageBuffer, Rgb, RgbImage};
+use std::f64::consts::FRAC_PI_2;
 
 /// 星の配置を決める固定シード（同一シードで毎回同じ配置になる）
 const STAR_PLACEMENT_SEED: u64 = 0xDEAD_BEEF_1234_5678;
@@ -32,25 +37,87 @@ const CLOUD_NOISE_RANGE: f64 = 1.0 - CLOUD_NOISE_THRESHOLD;
 /// 雲の最大不透明度
 const MAX_CLOUD_ALPHA: f64 = 0.75;
 
-/// 空のグラデーション画像を生成する
+/// 画像上端 (y=0) を天頂、下端 (y=h) を地平線とみなしたときの天頂角 (rad) を返す
+#[inline]
+fn pixel_theta(y: u32, h: u32) -> f64 {
+    // sky エリアは上 75% を使用（下 25% は render_ground が地面で上書き）
+    // それ以上でも地平線色として扱う
+    ((y as f64 / h as f64) * FRAC_PI_2).min(FRAC_PI_2 - 1e-6)
+}
+
+/// 画像 x 座標を方位角 (rad) に変換する (0 = 左端, 2π = 右端)
+#[inline]
+fn pixel_phi(x: u32, w: u32) -> f64 {
+    (x as f64 / w as f64) * std::f64::consts::TAU
+}
+
+/// 空のグラデーション画像を Preetham / Perez 大気散乱モデルで生成する
+///
+/// 太陽が地平線以上の場合は物理ベースの計算、
+/// 地平線以下（薄明・夜間）はパレット補間にフェードアウトする。
 pub fn render_sky(pos: &SunPosition, cfg: &ImageConfig) -> RgbImage {
-    let colors = SkyColors::from_altitude(pos.altitude);
     let (w, h) = (cfg.width, cfg.height);
     let mut img: RgbImage = ImageBuffer::new(w, h);
 
-    for (_, y, pixel) in img.enumerate_pixels_mut() {
-        // y=0 が天頂, y=h が地平線
+    // ── Preetham モデルを構築 ─────────────────────────────────────────────
+    let preetham = PreethamSky::new(pos.altitude, DEFAULT_TURBIDITY).with_azimuth(pos.azimuth);
+
+    // ── パレット補間（薄明・夜間フォールバック + 地面色取得用）────────────
+    let palette = SkyColors::from_altitude(pos.altitude);
+
+    // 太陽高度角によるブレンド比率を決める
+    //   altitude >= 2°  → Preetham 100%
+    //   altitude <= -5° → Palette 100%
+    //   その間        → 線形ブレンド
+    let preetham_weight = ((pos.altitude - (-5.0)) / (2.0 - (-5.0))).clamp(0.0, 1.0);
+
+    for (x, y, pixel) in img.enumerate_pixels_mut() {
+        let theta = pixel_theta(y, h);
+        let phi = pixel_phi(x, w);
+
+        // ── Preetham 空色 ──────────────────────────────────────────────
+        let (pr, pg, pb) = preetham.sky_rgb(theta, phi);
+
+        // ── パレット補間色（t_curved によるグラデーション）────────────
         let t = y as f64 / h as f64;
-        // べき乗で地平線付近に色変化を集中させる（指数 > 1.0 → 天頂は天頂色、下端で急変）
         let t_curved = t.powf(2.0);
-        *pixel = colors.zenith.lerp(colors.horizon, t_curved).to_rgb();
+        let pal = palette.zenith.lerp(palette.horizon, t_curved);
+
+        // ── ブレンド ──────────────────────────────────────────────────
+        let r = blend_f64(pal.0, pr, preetham_weight);
+        let g = blend_f64(pal.1, pg, preetham_weight);
+        let b = blend_f64(pal.2, pb, preetham_weight);
+
+        *pixel = Rgb([r, g, b]);
     }
 
     img
 }
 
-/// 太陽ディスクとハローを描画する
-/// 高度角が -5° 以下の場合は描画しない
+/// palette の u8 値と Preetham の u8 値を weight でブレンドする
+#[inline]
+fn blend_f64(pal: u8, phys: u8, weight: f64) -> u8 {
+    (pal as f64 * (1.0 - weight) + phys as f64 * weight)
+        .clamp(0.0, 255.0)
+        .round() as u8
+}
+
+/// 太陽が地面レイヤーに被らないよう地平線 Y 座標を返す（render_ground と一致させる）
+#[inline]
+fn ground_line_y(h: u32) -> i32 {
+    (h as f64 * 0.75) as i32
+}
+
+/// 太陽方向の大気グローを描画する
+///
+/// 太陽ディスクは描画しない（人間は太陽を直視しないため）。
+/// 代わりに、大きくぼんやりとした方向ヒントグローのみを重ねる。
+/// このグローは後続の apply_blur でさらに拡散する。
+/// 高度角が -5° 以下の場合は描画しない。
+/// 地面レイヤー（下 25%）より下のピクセルには描画しない。
+///
+/// # 注意
+/// 関数名を `render_sun` のままにして呼び出し側の変更を最小化している。
 pub fn render_sun(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) {
     if pos.altitude < -5.0 {
         return;
@@ -59,59 +126,147 @@ pub fn render_sun(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) {
     let colors = SkyColors::from_altitude(pos.altitude);
     let (w, h) = (cfg.width, cfg.height);
 
-    // 画面上の太陽位置を算出
-    // 高度角を垂直位置に変換（0°=地平線=h px, 90°≈天頂=0 px）
-    let sun_y = h as f64 * (1.0 - (pos.altitude / 95.0).clamp(0.0, 1.0));
-    // 方位角を水平位置に変換
+    let ground_y = ground_line_y(h);
+
+    // 太陽方向の画面座標（地平線ライン = ground_y, 天頂 = 0）
+    let altitude_frac = (pos.altitude / 90.0).clamp(0.0, 1.0);
+    let sun_y = ground_y as f64 * (1.0 - altitude_frac);
     let sun_x = w as f64 * (pos.azimuth / 360.0);
 
-    let halo_radius: i32 = (w.min(h) as f64 * 0.25) as i32;
-    let disk_radius: i32 = (w.min(h) as f64 * 0.025).max(8.0) as i32;
-
+    // グロー半径: 画面短辺の 45%（大きめにして後続ブラーで自然に溶け込む）
+    let glow_radius: i32 = (w.min(h) as f64 * 0.45) as i32;
     let cx = sun_x as i32;
     let cy = sun_y as i32;
 
-    // ハロー（ソフトグロー）を描画
-    for dy in -halo_radius..=halo_radius {
-        for dx in -halo_radius..=halo_radius {
+    for dy in -glow_radius..=glow_radius {
+        for dx in -glow_radius..=glow_radius {
             let px = cx + dx;
             let py = cy + dy;
-            if px < 0 || py < 0 || px >= w as i32 || py >= h as i32 {
+            if px < 0 || py < 0 || px >= w as i32 || py >= h as i32 || py >= ground_y {
                 continue;
             }
             let dist = ((dx * dx + dy * dy) as f64).sqrt();
-            if dist > halo_radius as f64 {
+            if dist > glow_radius as f64 {
                 continue;
             }
-            let t = 1.0 - (dist / halo_radius as f64);
-            // ガウス的減衰
-            let alpha = (t * t * t).min(1.0) * 0.6;
+            // 中心ほど強く、外周に向けて 4 乗で急速に減衰
+            // → 「ぼんやりした輝き」を表現。最大不透明度 0.30 で控えめに。
+            let t = 1.0 - (dist / glow_radius as f64);
+            let alpha = t.powi(4) * 0.30;
+            if alpha < 1e-4 {
+                continue;
+            }
             let base_pixel = base.get_pixel(px as u32, py as u32).0;
-            let halo = colors.sun_halo;
+            let glow = colors.sun_halo;
             let blended = Rgb([
-                blend(base_pixel[0], halo.0, alpha),
-                blend(base_pixel[1], halo.1, alpha),
-                blend(base_pixel[2], halo.2, alpha),
+                blend(base_pixel[0], glow.0, alpha),
+                blend(base_pixel[1], glow.1, alpha),
+                blend(base_pixel[2], glow.2, alpha),
             ]);
             base.put_pixel(px as u32, py as u32, blended);
         }
     }
+}
 
-    // 太陽ディスクを描画
-    for dy in -disk_radius..=disk_radius {
-        for dx in -disk_radius..=disk_radius {
-            let px = cx + dx;
-            let py = cy + dy;
-            if px < 0 || py < 0 || px >= w as i32 || py >= h as i32 {
-                continue;
-            }
-            let dist = ((dx * dx + dy * dy) as f64).sqrt();
-            if dist <= disk_radius as f64 {
-                let disk = colors.sun_disk;
-                base.put_pixel(px as u32, py as u32, disk.to_rgb());
-            }
+// ─── ガウシアンブラー ─────────────────────────────────────────────────────────
+
+/// ボックスブラーの半径（ピクセル）
+/// 3 パス繰り返すことで中央極限定理によりガウシアンに近似する。
+/// 解像度に対して相対的に決める: 短辺の約 0.7%、最低 3px
+fn blur_radius(w: u32, h: u32) -> u32 {
+    ((w.min(h) as f64 * 0.007) as u32).max(3)
+}
+
+/// 水平方向のボックスブラー（1 パス）
+fn box_blur_h(src: &RgbImage, radius: u32) -> RgbImage {
+    let (w, h) = src.dimensions();
+    let r = radius as i32;
+    let div = (2 * r + 1) as f64;
+    let mut dst = RgbImage::new(w, h);
+
+    for y in 0..h {
+        // 先頭ピクセルの初期ウィンドウを積算
+        let mut sum = [0.0_f64; 3];
+        for dx in -r..=r {
+            let sx = dx.clamp(0, w as i32 - 1) as u32;
+            let px = src.get_pixel(sx, y).0;
+            sum[0] += px[0] as f64;
+            sum[1] += px[1] as f64;
+            sum[2] += px[2] as f64;
+        }
+        // スライディングウィンドウで右に走査
+        for x in 0..w {
+            dst.put_pixel(
+                x,
+                y,
+                Rgb([
+                    (sum[0] / div).round() as u8,
+                    (sum[1] / div).round() as u8,
+                    (sum[2] / div).round() as u8,
+                ]),
+            );
+            // 次のピクセルに進むため左端を引き、右端を加える
+            let leave = (x as i32 - r).clamp(0, w as i32 - 1) as u32;
+            let enter = (x as i32 + r + 1).clamp(0, w as i32 - 1) as u32;
+            let lp = src.get_pixel(leave, y).0;
+            let ep = src.get_pixel(enter, y).0;
+            sum[0] += ep[0] as f64 - lp[0] as f64;
+            sum[1] += ep[1] as f64 - lp[1] as f64;
+            sum[2] += ep[2] as f64 - lp[2] as f64;
         }
     }
+    dst
+}
+
+/// 垂直方向のボックスブラー（1 パス）
+fn box_blur_v(src: &RgbImage, radius: u32) -> RgbImage {
+    let (w, h) = src.dimensions();
+    let r = radius as i32;
+    let div = (2 * r + 1) as f64;
+    let mut dst = RgbImage::new(w, h);
+
+    for x in 0..w {
+        let mut sum = [0.0_f64; 3];
+        for dy in -r..=r {
+            let sy = dy.clamp(0, h as i32 - 1) as u32;
+            let px = src.get_pixel(x, sy).0;
+            sum[0] += px[0] as f64;
+            sum[1] += px[1] as f64;
+            sum[2] += px[2] as f64;
+        }
+        for y in 0..h {
+            dst.put_pixel(
+                x,
+                y,
+                Rgb([
+                    (sum[0] / div).round() as u8,
+                    (sum[1] / div).round() as u8,
+                    (sum[2] / div).round() as u8,
+                ]),
+            );
+            let leave = (y as i32 - r).clamp(0, h as i32 - 1) as u32;
+            let enter = (y as i32 + r + 1).clamp(0, h as i32 - 1) as u32;
+            let lp = src.get_pixel(x, leave).0;
+            let ep = src.get_pixel(x, enter).0;
+            sum[0] += ep[0] as f64 - lp[0] as f64;
+            sum[1] += ep[1] as f64 - lp[1] as f64;
+            sum[2] += ep[2] as f64 - lp[2] as f64;
+        }
+    }
+    dst
+}
+
+/// ガウシアンブラーの近似（ボックスブラー 3 パス）を画像全体に適用する
+///
+/// ボックスブラーを 3 回繰り返すと中央極限定理によりガウシアンに近似される。
+/// スライディングウィンドウにより O(W×H) で動作する。
+pub fn apply_blur(img: RgbImage) -> RgbImage {
+    let (w, h) = img.dimensions();
+    let r = blur_radius(w, h);
+    // 3 パスでガウシアン近似
+    let pass1 = box_blur_v(&box_blur_h(&img, r), r);
+    let pass2 = box_blur_v(&box_blur_h(&pass1, r), r);
+    box_blur_v(&box_blur_h(&pass2, r), r)
 }
 
 /// 地面エリア（下 25%）と地平線グローを描画する
@@ -227,10 +382,9 @@ pub fn render_clouds(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) 
             }
 
             // 雲の濃さ（0.0 〜 MAX_CLOUD_ALPHA）
-            let cloud_alpha =
-                ((noise - CLOUD_NOISE_THRESHOLD) / CLOUD_NOISE_RANGE).clamp(0.0, 1.0)
-                    * y_factor
-                    * MAX_CLOUD_ALPHA;
+            let cloud_alpha = ((noise - CLOUD_NOISE_THRESHOLD) / CLOUD_NOISE_RANGE).clamp(0.0, 1.0)
+                * y_factor
+                * MAX_CLOUD_ALPHA;
 
             if cloud_alpha < 0.01 {
                 continue;
@@ -264,12 +418,12 @@ fn lcg_rand(seed: &mut u64) -> u32 {
 /// 重みの合計が 2.5 なので、オフセット 2.5 を加えて 5.0 で割ることで [0, 1] に正規化する。
 fn cloud_noise(x: f64, y: f64) -> f64 {
     // 各オクターブ: (x 周波数, x 位相, y 周波数, y 位相, 重み)
-    let v0 = (x * 0.007 + 1.3).sin() * (y * 0.009 + 0.7).sin();        // 重み 1.0
+    let v0 = (x * 0.007 + 1.3).sin() * (y * 0.009 + 0.7).sin(); // 重み 1.0
     let v1 = (x * 0.013 + 3.1).sin() * (y * 0.005 + 2.3).cos() * 0.7; // 重み 0.7
     let v2 = (x * 0.003 + 5.7).cos() * (y * 0.011 + 4.1).sin() * 0.5; // 重み 0.5
     let v3 = (x * 0.019 + 0.9).sin() * (y * 0.017 + 1.5).cos() * 0.3; // 重み 0.3
-    // 理論最大絶対値: 1.0 + 0.7 + 0.5 + 0.3 = 2.5
-    // → [−2.5, 2.5] を [0, 1] へ正規化
+                                                                      // 理論最大絶対値: 1.0 + 0.7 + 0.5 + 0.3 = 2.5
+                                                                      // → [−2.5, 2.5] を [0, 1] へ正規化
     const NOISE_OFFSET: f64 = 2.5;
     const NOISE_SCALE: f64 = 5.0; // = 2 * NOISE_OFFSET
     ((v0 + v1 + v2 + v3) + NOISE_OFFSET) / NOISE_SCALE
@@ -296,11 +450,17 @@ mod tests {
     }
 
     fn night_pos() -> SunPosition {
-        SunPosition { altitude: -20.0, azimuth: 0.0 }
+        SunPosition {
+            altitude: -20.0,
+            azimuth: 0.0,
+        }
     }
 
     fn day_pos() -> SunPosition {
-        SunPosition { altitude: 30.0, azimuth: 180.0 }
+        SunPosition {
+            altitude: 30.0,
+            azimuth: 180.0,
+        }
     }
 
     /// show_stars=true かつ深夜（altitude=-20°）で星が描画されること
@@ -312,10 +472,7 @@ mod tests {
         let before = base.clone();
         render_stars(&pos, &cfg, &mut base);
         // 少なくとも 1 ピクセルが変化していること
-        let changed = before
-            .pixels()
-            .zip(base.pixels())
-            .any(|(a, b)| a != b);
+        let changed = before.pixels().zip(base.pixels()).any(|(a, b)| a != b);
         assert!(changed, "深夜に星が描画されていない");
     }
 
@@ -326,14 +483,14 @@ mod tests {
     fn test_stars_not_drawn_above_threshold() {
         let cfg = test_cfg();
         // altitude=-5.0 は -6.0 より大きいので night_depth=0 → alpha=0
-        let pos = SunPosition { altitude: -5.0, azimuth: 0.0 };
+        let pos = SunPosition {
+            altitude: -5.0,
+            azimuth: 0.0,
+        };
         let mut base = render_sky(&pos, &cfg);
         let before = base.clone();
         render_stars(&pos, &cfg, &mut base);
-        let changed = before
-            .pixels()
-            .zip(base.pixels())
-            .any(|(a, b)| a != b);
+        let changed = before.pixels().zip(base.pixels()).any(|(a, b)| a != b);
         assert!(!changed, "altitude=-5.0 で星が描画されてはいけない");
     }
 
@@ -341,8 +498,14 @@ mod tests {
     #[test]
     fn test_more_stars_at_deeper_night() {
         let cfg = test_cfg();
-        let shallow_night = SunPosition { altitude: -8.0, azimuth: 0.0 };
-        let deep_night = SunPosition { altitude: -20.0, azimuth: 0.0 };
+        let shallow_night = SunPosition {
+            altitude: -8.0,
+            azimuth: 0.0,
+        };
+        let deep_night = SunPosition {
+            altitude: -20.0,
+            azimuth: 0.0,
+        };
 
         let mut base_shallow = render_sky(&shallow_night, &cfg);
         let before_shallow = base_shallow.clone();
@@ -376,10 +539,7 @@ mod tests {
         let mut base = render_sky(&pos, &cfg);
         let before = base.clone();
         render_stars(&pos, &cfg, &mut base);
-        let changed = before
-            .pixels()
-            .zip(base.pixels())
-            .any(|(a, b)| a != b);
+        let changed = before.pixels().zip(base.pixels()).any(|(a, b)| a != b);
         assert!(!changed, "昼間に stars が描画されてはいけない");
     }
 
@@ -432,8 +592,14 @@ mod tests {
             show_clouds: true,
         };
 
-        let pos_day = SunPosition { altitude: 45.0, azimuth: 180.0 };
-        let pos_night = SunPosition { altitude: -20.0, azimuth: 0.0 };
+        let pos_day = SunPosition {
+            altitude: 45.0,
+            azimuth: 180.0,
+        };
+        let pos_night = SunPosition {
+            altitude: -20.0,
+            azimuth: 0.0,
+        };
 
         let mut day_img = render_sky(&pos_day, &cfg);
         let mut night_img = render_sky(&pos_night, &cfg);
@@ -452,7 +618,10 @@ mod tests {
     #[test]
     fn test_clouds_stay_in_upper_area() {
         // 画面下部（65% 以下）には雲ピクセルが存在しないことを確認
-        let pos = SunPosition { altitude: 45.0, azimuth: 180.0 };
+        let pos = SunPosition {
+            altitude: 45.0,
+            azimuth: 180.0,
+        };
         let cfg = ImageConfig {
             width: 64,
             height: 64,

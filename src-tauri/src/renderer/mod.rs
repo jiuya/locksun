@@ -4,6 +4,7 @@
 
 pub mod composer;
 pub mod palette;
+pub mod preetham;
 pub mod sky;
 
 use crate::config::ImageConfig;
