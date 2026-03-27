@@ -55,10 +55,13 @@ export async function testIPCConnection(): Promise<IPCTestResult> {
     }
   }
 
+  const totalDuration = performance.now() - startTime;
+
   console.log("=== IPC Connection Test Results ===");
   console.log("Tauri Available:", result.tauriAvailable);
   console.log("Internals Detected:", result.internalsDetected);
   console.log("Command Test Results:", result.commandTestResults);
+  console.log(`Total test duration: ${Math.round(totalDuration)}ms`);
 
   return result;
 }
