@@ -77,7 +77,8 @@ jobs:
           fi
 
           # ── Cargo.toml の現バージョンを取得してインクリメント ────
-          CURRENT=$(grep '^version' src-tauri/Cargo.toml | head -1 \
+          # ワークスペースルートの Cargo.toml に version が定義されている
+          CURRENT=$(grep '^version' Cargo.toml | head -1 \
                     | sed 's/version[[:space:]]*=[[:space:]]*"\([^"]*\)"/\1/')
           IFS='.' read -ra PARTS <<< "$CURRENT"
           MAJOR="${PARTS[0]}"
@@ -133,13 +134,14 @@ jobs:
         env:
           NEW_VERSION: ${{ needs.decide.outputs.new_version }}
         run: |
-          # src-tauri/Cargo.toml — [package] セクションの最初の version のみを更新
+          # ワークスペースルートの Cargo.toml の [workspace.package] version を更新
+          # src-tauri/Cargo.toml は version.workspace = true なので変更不要
           node -e "
             const fs = require('fs');
             const v = process.env.NEW_VERSION;
-            let t = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
-            t = t.replace(/^version = \"\d+\.\d+\.\d+\"/, \`version = \"\${v}\"\`);
-            fs.writeFileSync('src-tauri/Cargo.toml', t);
+            let t = fs.readFileSync('Cargo.toml', 'utf8');
+            t = t.replace(/^version = \"\d+\.\d+\.\d+\"/m, \`version = \"\${v}\"\`);
+            fs.writeFileSync('Cargo.toml', t);
           "
 
           # package.json
@@ -170,7 +172,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # core.autocrlf の影響でステージ後に差分なしになるのを防ぐ
           git config core.autocrlf false
-          git add src-tauri/Cargo.toml package.json src-tauri/tauri.conf.json
+          git add Cargo.toml package.json src-tauri/tauri.conf.json
           if git diff --cached --quiet; then
             echo "Version files unchanged (already at ${NEW_VERSION}). Skipping commit."
           else
