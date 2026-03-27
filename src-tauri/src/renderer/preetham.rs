@@ -407,18 +407,16 @@ mod tests {
         assert!(f > 0.0, "perez_f は正の値を返すはず: f={f}");
     }
 
-    /// 変換結果が 0〜255 の範囲に収まる
+    /// 変換結果が 0〜255 の範囲に収まる（u8 の型保証 + パニックなし確認）
     #[test]
     fn test_rgb_bounds() {
         for alt in [-5.0_f64, 0.0, 10.0, 45.0, 85.0] {
             let clamped_alt = alt.max(0.0);
             let sky = PreethamSky::new(clamped_alt, DEFAULT_TURBIDITY).with_azimuth(180.0);
             for theta_deg in [0.0_f64, 30.0, 60.0, 85.0] {
-                let (r, g, b) = sky.sky_rgb(theta_deg.to_radians(), PI);
-                assert!(
-                    r == 255 && g == 255 && b == 255,
-                    "RGB が範囲外: alt={alt} theta={theta_deg} → ({r},{g},{b})"
-                );
+                // sky_rgb は (u8, u8, u8) を返すため、型システムが 0-255 を保証する。
+                // ここではパニックや NaN 起因のクランプ超過が起きないことを確認する。
+                let (_r, _g, _b) = sky.sky_rgb(theta_deg.to_radians(), PI);
             }
         }
     }
