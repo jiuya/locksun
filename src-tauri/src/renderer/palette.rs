@@ -18,10 +18,14 @@ impl Color {
     /// 線形補間 t: 0.0=self, 1.0=other
     pub fn lerp(self, other: Color, t: f64) -> Color {
         let t = t.clamp(0.0, 1.0);
+        let lerp_chan = |a: u8, b: u8| {
+            ((a as f64 + (b as f64 - a as f64) * t).round() as i64).clamp(0, 255) as u8
+        };
+
         Color(
-            (self.0 as f64 + (other.0 as f64 - self.0 as f64) * t) as u8,
-            (self.1 as f64 + (other.1 as f64 - self.1 as f64) * t) as u8,
-            (self.2 as f64 + (other.2 as f64 - self.2 as f64) * t) as u8,
+            lerp_chan(self.0, other.0),
+            lerp_chan(self.1, other.1),
+            lerp_chan(self.2, other.2),
         )
     }
 }
@@ -194,14 +198,14 @@ mod tests {
             night_brightness < day_brightness,
             "夜の地面は昼より暗いはず"
         );
-        // 昼間の地面は緑成分が赤・青より大きいはず
+        // 昼間の地面（湖水）は青成分が最も大きいはず
         assert!(
-            midday.ground.1 > midday.ground.0,
-            "昼の地面は緑成分が赤より大きいはず"
+            midday.ground.2 > midday.ground.0,
+            "昼の地面は青成分が赤より大きいはず"
         );
         assert!(
-            midday.ground.1 > midday.ground.2,
-            "昼の地面は緑成分が青より大きいはず"
+            midday.ground.2 > midday.ground.1,
+            "昼の地面は青成分が緑より大きいはず"
         );
     }
 }
