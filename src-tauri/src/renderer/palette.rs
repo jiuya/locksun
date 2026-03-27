@@ -48,7 +48,7 @@ impl SkyColors {
     pub fn from_altitude(altitude: f64) -> Self {
         // キーフレーム定義 (altitude, SkyColors)
         let keyframes: &[(f64, SkyColors)] = &[
-            // 天文夜
+            // 天文夜 - 暗い湖面
             (
                 -18.0,
                 SkyColors {
@@ -56,11 +56,11 @@ impl SkyColors {
                     horizon: Color(5, 5, 25),
                     sun_halo: Color(0, 0, 0),
                     sun_disk: Color(0, 0, 0),
-                    ground: Color(5, 5, 20),
+                    ground: Color(5, 8, 25), // 暗い青
                     ambient: 0.0,
                 },
             ),
-            // 市民薄明開始
+            // 市民薄明開始 - 夜明け前の湖面
             (
                 -6.0,
                 SkyColors {
@@ -68,11 +68,11 @@ impl SkyColors {
                     horizon: Color(40, 20, 60),
                     sun_halo: Color(80, 30, 20),
                     sun_disk: Color(80, 30, 20),
-                    ground: Color(20, 10, 35),
+                    ground: Color(15, 20, 45), // 深い青紫
                     ambient: 0.05,
                 },
             ),
-            // 日の出・日の入り直前
+            // 日の出・日の入り直前 - マジックアワーの水面
             (
                 -1.0,
                 SkyColors {
@@ -80,11 +80,11 @@ impl SkyColors {
                     horizon: Color(200, 80, 20),
                     sun_halo: Color(255, 120, 0),
                     sun_disk: Color(255, 180, 50),
-                    ground: Color(60, 25, 30),
+                    ground: Color(40, 30, 65), // 紫がかった青
                     ambient: 0.2,
                 },
             ),
-            // 日の出・日の入り直後 (ゴールデンアワー)
+            // 日の出・日の入り直後 (ゴールデンアワー) - オレンジが映る水面
             (
                 2.0,
                 SkyColors {
@@ -92,11 +92,11 @@ impl SkyColors {
                     horizon: Color(255, 140, 30),
                     sun_halo: Color(255, 180, 60),
                     sun_disk: Color(255, 240, 100),
-                    ground: Color(60, 35, 15),
+                    ground: Color(30, 45, 85), // 夕日を反射する水面
                     ambient: 0.6,
                 },
             ),
-            // 朝・夕 (低角度)
+            // 朝・夕 (低角度) - 暖かい光を反射する湖面
             (
                 10.0,
                 SkyColors {
@@ -104,11 +104,11 @@ impl SkyColors {
                     horizon: Color(180, 210, 240),
                     sun_halo: Color(255, 240, 180),
                     sun_disk: Color(255, 255, 200),
-                    ground: Color(40, 45, 35),
+                    ground: Color(40, 60, 120), // 明るい空を映す水面
                     ambient: 0.9,
                 },
             ),
-            // 昼間
+            // 昼間 - 空を反映する青い湖水
             (
                 45.0,
                 SkyColors {
@@ -116,11 +116,11 @@ impl SkyColors {
                     horizon: Color(130, 190, 240),
                     sun_halo: Color(255, 255, 220),
                     sun_disk: Color(255, 255, 245),
-                    ground: Color(35, 50, 30),
+                    ground: Color(30, 80, 140), // 澄んだ湖水
                     ambient: 1.0,
                 },
             ),
-            // 高高度
+            // 高高度 - 深い青の湖水
             (
                 90.0,
                 SkyColors {
@@ -128,7 +128,7 @@ impl SkyColors {
                     horizon: Color(100, 160, 220),
                     sun_halo: Color(255, 255, 230),
                     sun_disk: Color(255, 255, 255),
-                    ground: Color(40, 55, 35),
+                    ground: Color(25, 70, 135), // 深い湖水の青
                     ambient: 1.0,
                 },
             ),
@@ -186,12 +186,22 @@ mod tests {
         let night = SkyColors::from_altitude(-20.0);
         let midday = SkyColors::from_altitude(60.0);
         // 夜の地面は昼より暗いはず
-        let night_brightness = night.ground.0 as u16 + night.ground.1 as u16 + night.ground.2 as u16;
-        let day_brightness = midday.ground.0 as u16 + midday.ground.1 as u16 + midday.ground.2 as u16;
-        assert!(night_brightness < day_brightness, "夜の地面は昼より暗いはず");
+        let night_brightness =
+            night.ground.0 as u16 + night.ground.1 as u16 + night.ground.2 as u16;
+        let day_brightness =
+            midday.ground.0 as u16 + midday.ground.1 as u16 + midday.ground.2 as u16;
+        assert!(
+            night_brightness < day_brightness,
+            "夜の地面は昼より暗いはず"
+        );
         // 昼間の地面は緑成分が赤・青より大きいはず
-        assert!(midday.ground.1 > midday.ground.0, "昼の地面は緑成分が赤より大きいはず");
-        assert!(midday.ground.1 > midday.ground.2, "昼の地面は緑成分が青より大きいはず");
+        assert!(
+            midday.ground.1 > midday.ground.0,
+            "昼の地面は緑成分が赤より大きいはず"
+        );
+        assert!(
+            midday.ground.1 > midday.ground.2,
+            "昼の地面は緑成分が青より大きいはず"
+        );
     }
 }
-

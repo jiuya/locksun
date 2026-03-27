@@ -24,3 +24,9 @@ Thumbs.db
 # ログ
 *.log
 src-tauri/gen/
+
+# Playwright テスト結果
+tests/e2e/screenshots/
+playwright-report/
+test-results/
+.playwright/

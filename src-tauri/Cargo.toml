@@ -1,9 +1,9 @@
 [package]
 name = "locksun"
-version = "0.1.0"
-description = "Windows lock screen solar simulation"
-authors = ["locksun"]
-edition = "2021"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [lib]
 name = "locksun_lib"
@@ -13,36 +13,45 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon", "image-ico", "image-png"] }
+tauri = { version = "2", features = [
+	"tray-icon",
+	"image-ico",
+	"image-png",
+	"test",
+] }
 tauri-plugin-shell = "2"
 tauri-plugin-autostart = "2"
 
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-toml = "0.8"
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
 
 # 時刻・日付
-chrono = { version = "0.4", features = ["serde"] }
+chrono.workspace = true
 
 # 画像生成
-image = { version = "0.25", default-features = false, features = [
-"png",
-"jpeg",
-] }
+image.workspace = true
 
 # base64 エンコード（プレビュー画像転送用）
-base64 = "0.22"
+base64.workspace = true
 
 # パス解決
-dirs = "5"
+dirs.workspace = true
 
 # ロギング
-log = "0.4"
-env_logger = "0.11"
+log.workspace = true
+env_logger.workspace = true
 
 # エラーハンドリング
-thiserror = "2"
-anyhow = "1"
+thiserror.workspace = true
+anyhow.workspace = true
+
+# 非同期ランタイム
+tokio = { version = "1", features = ["full"] }
+
+[[example]]
+name = "generate_test_image"
+path = "examples/generate_test_image.rs"
 
 # 非同期
 tokio = { version = "1", features = ["full"] }

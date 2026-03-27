@@ -131,6 +131,44 @@ body {
 .field-row select:focus {
   border-color: var(--accent2);
 }
+
+/* スライダー */
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+.field-row input[type="range"] {
+  flex: 1;
+  appearance: none;
+  background: var(--surface2);
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+}
+.field-row input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent2);
+  cursor: pointer;
+}
+.field-row input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent2);
+  cursor: pointer;
+  border: none;
+}
+.slider-value {
+  min-width: 30px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
 .checkbox-row label {
   display: flex;
   align-items: center;

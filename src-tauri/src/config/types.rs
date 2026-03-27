@@ -41,6 +41,8 @@ pub struct ImageConfig {
     pub show_stars: bool,
     /// 雲エフェクトを表示するか
     pub show_clouds: bool,
+    /// 水の深さ (0.0-1.0: 0=浅い青緑, 1=深い青)
+    pub water_depth: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,23 +55,19 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             location: LocationConfig {
-                // デフォルト: 東京
-                latitude:  35.6895,
-                longitude: 139.6917,
+                latitude: 35.6762,
+                longitude: 139.6503,
                 name: "東京".to_string(),
             },
-            update: UpdateConfig {
-                interval_secs: 300, // 5分
-            },
+            update: UpdateConfig { interval_secs: 300 },
             image: ImageConfig {
-                width:       1920,
-                height:      1080,
-                show_stars:  true,
+                width: 1920,
+                height: 1080,
+                show_stars: true,
                 show_clouds: false,
+                water_depth: 0.7, // 中程度の深さ（標準的な湖の深さ）
             },
-            behavior: BehaviorConfig {
-                autostart: false,
-            },
+            behavior: BehaviorConfig { autostart: false },
         }
     }
 }

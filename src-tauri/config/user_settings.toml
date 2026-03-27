@@ -11,6 +11,7 @@ width = 1920
 height = 1080
 show_stars = true
 show_clouds = false
+water_depth = 0.7
 
 [behavior]
 autostart = false

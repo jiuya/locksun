@@ -84,9 +84,11 @@ pub fn render_sky(pos: &SunPosition, cfg: &ImageConfig) -> RgbImage {
         let pal = palette.zenith.lerp(palette.horizon, t_curved);
 
         // ── ブレンド ──────────────────────────────────────────────────
-        let r = blend_f64(pal.0, pr, preetham_weight);
-        let g = blend_f64(pal.1, pg, preetham_weight);
-        let b = blend_f64(pal.2, pb, preetham_weight);
+        // Preethamモデルの出力をさらに抑制して白飛びを防ぐ
+        let preetham_factor = 0.75; // Preethamの強度を75%に抑制（さらに減少）
+        let r = blend_f64(pal.0, (pr as f64 * preetham_factor) as u8, preetham_weight);
+        let g = blend_f64(pal.1, (pg as f64 * preetham_factor) as u8, preetham_weight);
+        let b = blend_f64(pal.2, (pb as f64 * preetham_factor) as u8, preetham_weight);
 
         *pixel = Rgb([r, g, b]);
     }
@@ -150,9 +152,9 @@ pub fn render_sun(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) {
                 continue;
             }
             // 中心ほど強く、外周に向けて 4 乗で急速に減衰
-            // → 「ぼんやりした輝き」を表現。最大不透明度 0.30 で控えめに。
+            // → 「ぼんやりした輝き」を表現。最大不透明度を0.20に抑制。
             let t = 1.0 - (dist / glow_radius as f64);
-            let alpha = t.powi(4) * 0.30;
+            let alpha = t.powi(4) * 0.20; // 0.30 → 0.20 に減少
             if alpha < 1e-4 {
                 continue;
             }
@@ -269,7 +271,8 @@ pub fn apply_blur(img: RgbImage) -> RgbImage {
     box_blur_v(&box_blur_h(&pass2, r), r)
 }
 
-/// 地面エリア（下 25%）と地平線グローを描画する
+/// 湖面エリア（下 25%）と地平線グローを描画する
+/// 水面の反射効果、波紋、太陽の映り込みを含む
 pub fn render_ground(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) {
     let colors = SkyColors::from_altitude(pos.altitude);
     let (w, h) = (cfg.width, cfg.height);
@@ -280,11 +283,114 @@ pub fn render_ground(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) 
     // 地平線グローのフェード幅 (px)
     let glow_width: u32 = (h as f64 * 0.04).max(8.0) as u32;
 
+    // 太陽の方位角（ラジアン）
+    let sun_azimuth = pos.azimuth;
+
     for y in 0..h {
         for x in 0..w {
             if y >= ground_y {
-                // 地面エリア: 地面色で塗りつぶす
-                base.put_pixel(x, y, colors.ground.to_rgb());
+                // 湖面エリア: 空の反射 + 水面特性 + 太陽反射
+                let base_water_color = colors.ground; // 基本的な水の色（深度による）
+
+                // 1. 距離による深度効果（強化版）
+                let depth_ratio = (y - ground_y) as f64 / (h - ground_y) as f64;
+                let distance_factor = 1.0 - depth_ratio * 0.5; // 0.3→0.5に強化して暗く
+
+                // 2. 水深による色調整（新機能！）
+                // 0.0=浅い青緑, 1.0=深い青
+                let water_depth = cfg.water_depth.clamp(0.0, 1.0);
+                let shallow_color = Color(40, 80, 140); // 浅い水の青緑（暗め調整）
+                let deep_color = Color(15, 40, 90); // 深い水の濃紺（暗め調整）
+                let depth_adjusted_color = shallow_color.lerp(deep_color, water_depth);
+
+                // 基本水色と溶け合わせ（白飛び防止のため水色優先に）
+                let water_base = base_water_color.lerp(depth_adjusted_color, 0.8); // 0.6→0.8で水色を強化
+
+                // 3. 空の色を水面に反映（重要な改良！）
+                // 水面の各点で、対応する空の色を計算
+                let sky_reflection_y = (ground_y as f64 * (1.0 - depth_ratio * 0.6)) as u32; // 遠くほど地平線近くを反映
+                let sky_reflection_y = sky_reflection_y.min(ground_y.saturating_sub(1));
+
+                let sky_pixel = base.get_pixel(x, sky_reflection_y).0;
+                let mut reflected_sky = Color(sky_pixel[0], sky_pixel[1], sky_pixel[2]);
+
+                // 反射色を暗めに調整して白飛び防止
+                reflected_sky.0 = (reflected_sky.0 as f64 * 0.6).round() as u8; // 40%暗く
+                reflected_sky.1 = (reflected_sky.1 as f64 * 0.7).round() as u8; // 30%暗く
+                reflected_sky.2 = (reflected_sky.2 as f64 * 0.8).round() as u8; // 20%暗く
+
+                // 4. 水の基本色と空の反射を混合
+                // 水面反射率: 白飛び防止のため大幅に抑制
+                let reflection_ratio = 0.15 + depth_ratio * 0.1; // 0.3→0.15にさらに削減
+                let mixed_water_color = water_base.lerp(reflected_sky, reflection_ratio);
+
+                // 4. 波紋効果（改良版）
+                let ripple_x = x as f64 * 0.015; // 波長を少し長く
+                let ripple_y = (y - ground_y) as f64 * 0.025;
+
+                // 複数周波数の波を組み合わせてより自然な波紋を生成
+                let wave1 = (ripple_x.sin() * ripple_y.cos()) * 0.4;
+                let wave2 = ((ripple_x * 1.7).cos() * (ripple_y * 1.3).sin()) * 0.3;
+                let wave3 = ((ripple_x * 0.6).sin() * (ripple_y * 2.1).cos()) * 0.2;
+
+                let combined_wave = wave1 + wave2 + wave3;
+
+                // 距離による波の減衰（遠くほど波が小さく見える）
+                let wave_attenuation = 1.0 - depth_ratio * 0.4;
+                let ripple_noise = combined_wave * wave_attenuation;
+                let ripple_factor = 1.0 + ripple_noise * 0.06; // 波紋の影響を少し抑制
+
+                // 5. 太陽の反射効果（既存のまま・抑制済み）
+                let pixel_azimuth = (x as f64 / w as f64) * std::f64::consts::TAU;
+                let sun_reflection_intensity = if pos.altitude > -6.0 {
+                    // 太陽方向への反射強度を計算（円周上の最短角度距離）
+                    let mut azimuth_diff = (pixel_azimuth - sun_azimuth).abs();
+                    if azimuth_diff > std::f64::consts::PI {
+                        azimuth_diff = std::f64::consts::TAU - azimuth_diff;
+                    }
+
+                    // 反射の幅を大幅に狭くして限定的な反射に
+                    let reflection_width = 0.08 + depth_ratio * 0.02; // より狭い反射範囲（0.15→0.08）
+
+                    let reflection_strength = if azimuth_diff < reflection_width {
+                        let reflection_t = 1.0 - (azimuth_diff / reflection_width);
+
+                        // 太陽高度による最大反射強度（さらに大幅に抑制）
+                        let altitude_factor = ((pos.altitude + 6.0) / 96.0).clamp(0.0, 1.0);
+
+                        // 距離による減衰を強化
+                        let distance_attenuation = 1.0 - depth_ratio * 0.7; // 強化
+
+                        // 最終的な反射強度（極限まで抑制して白飛び完全防止）
+                        let base_reflection =
+                            reflection_t.powf(6.0) * altitude_factor * distance_attenuation;
+
+                        // 安全な上限を設定（絶対に0.01を超えないようにする）
+                        base_reflection.min(0.01) * 0.002 // さらに1/500に削減
+                    } else {
+                        0.0
+                    };
+                    reflection_strength
+                } else {
+                    0.0
+                };
+
+                // 6. 最終的な水面色の合成（全体的に暗めに調整）
+                let base_r = (mixed_water_color.0 as f64 * distance_factor * ripple_factor * 0.8) // 全体を20%暗く
+                    .clamp(0.0, 255.0);
+                let base_g = (mixed_water_color.1 as f64 * distance_factor * ripple_factor * 0.8)
+                    .clamp(0.0, 255.0);
+                let base_b = (mixed_water_color.2 as f64 * distance_factor * ripple_factor * 0.8)
+                    .clamp(0.0, 255.0);
+
+                // 太陽反射を極めて控えめに加算（白飛び防止のため大幅削減）
+
+                let reflection_add = sun_reflection_intensity * 3.0; // さらに少なめに
+                let final_r = (base_r + reflection_add).clamp(0.0, 255.0) as u8;
+                let final_g = (base_g + reflection_add * 0.9).clamp(0.0, 255.0) as u8;
+                let final_b = (base_b + reflection_add * 0.7).clamp(0.0, 255.0) as u8;
+
+                base.put_pixel(x, y, Rgb([final_r, final_g, final_b]));
             } else if y + glow_width >= ground_y {
                 // 地平線グロー帯: horizon 色を alpha ブレンドして境界を滑らかにする
                 let dist = (ground_y - y) as f64; // ground_y までの距離 (px)
@@ -446,6 +552,7 @@ mod tests {
             height: 108,
             show_stars: true,
             show_clouds: false,
+            water_depth: 0.7,
         }
     }
 
@@ -555,6 +662,7 @@ mod tests {
             height: 64,
             show_stars: false,
             show_clouds: true,
+            water_depth: 0.7,
         };
         let mut base = render_sky(&pos_day, &cfg);
         let before = base.clone();
@@ -590,6 +698,7 @@ mod tests {
             height: 64,
             show_stars: false,
             show_clouds: true,
+            water_depth: 0.7,
         };
 
         let pos_day = SunPosition {
@@ -627,6 +736,7 @@ mod tests {
             height: 64,
             show_stars: false,
             show_clouds: true,
+            water_depth: 0.7,
         };
         let cloud_max_y = (cfg.height as f64 * 0.65) as u32;
 
