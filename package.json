@@ -1,6 +1,6 @@
 {
   "name": "locksun",
-  "version": "0.2.0",
+  "version": "version.1.0",
   "description": "Windows lock screen solar simulation",
   "type": "module",
   "scripts": {
