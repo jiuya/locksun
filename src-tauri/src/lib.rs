@@ -108,6 +108,7 @@ pub fn run() {
             commands::save_config,
             commands::get_sun_info,
             commands::preview_image,
+            commands::preview_image_with_config,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri アプリの起動に失敗しました");

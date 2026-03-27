@@ -416,7 +416,7 @@ mod tests {
             for theta_deg in [0.0_f64, 30.0, 60.0, 85.0] {
                 let (r, g, b) = sky.sky_rgb(theta_deg.to_radians(), PI);
                 assert!(
-                    r <= 255 && g <= 255 && b <= 255,
+                    r == 255 && g == 255 && b == 255,
                     "RGB が範囲外: alt={alt} theta={theta_deg} → ({r},{g},{b})"
                 );
             }

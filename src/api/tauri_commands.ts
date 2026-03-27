@@ -71,6 +71,7 @@ function handleMockCommand<T>(
       return Promise.resolve(undefined as T);
 
     case "preview_image":
+    case "preview_image_with_config":
       // Base64エンコードされた小さなテスト画像（1x1の青いピクセル）
       const mockImage =
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -154,3 +155,5 @@ export const saveConfig = (cfg: AppConfig): Promise<void> =>
 export const getSunInfo = (): Promise<SunInfoResponse> =>
   invoke("get_sun_info");
 export const previewImage = (): Promise<string> => invoke("preview_image");
+export const previewImageWithConfig = (cfg: AppConfig): Promise<string> =>
+  invoke("preview_image_with_config", { cfg });
