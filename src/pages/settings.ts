@@ -66,6 +66,30 @@ function schedulePreviewRefresh(): void {
   }, PREVIEW_DEBOUNCE_MS);
 }
 
+/** プレビュー関連のフォームイベント（水深・星・雲）を登録する */
+function bindPreviewSettingsEvents(): void {
+  const waterDepthSlider = document.getElementById(
+    "water-depth",
+  ) as HTMLInputElement;
+  const waterDepthValue = document.getElementById(
+    "water-depth-value",
+  ) as HTMLSpanElement;
+
+  waterDepthSlider.addEventListener("input", () => {
+    waterDepthValue.textContent = waterDepthSlider.value;
+    schedulePreviewRefresh();
+  });
+
+  (document.getElementById("show-stars") as HTMLInputElement).addEventListener(
+    "change",
+    schedulePreviewRefresh,
+  );
+  (document.getElementById("show-clouds") as HTMLInputElement).addEventListener(
+    "change",
+    schedulePreviewRefresh,
+  );
+}
+
 // プリセット都市データ
 interface PresetCity {
   name: string;
@@ -249,17 +273,7 @@ async function loadAndBindConfig(): Promise<void> {
   waterDepthSlider.value = String(cfg.image.water_depth);
   waterDepthValue.textContent = String(cfg.image.water_depth);
 
-  // 水深スライダーの値変更時のイベント
-  waterDepthSlider.addEventListener("input", () => {
-    waterDepthValue.textContent = waterDepthSlider.value;
-    schedulePreviewRefresh();
-  });
-
-  // show-stars / show-clouds 変更時
-  (document.getElementById("show-stars") as HTMLInputElement)
-    .addEventListener("change", schedulePreviewRefresh);
-  (document.getElementById("show-clouds") as HTMLInputElement)
-    .addEventListener("change", schedulePreviewRefresh);
+  bindPreviewSettingsEvents();
 
   // プリセット都市の照合と選択
   syncCityPreset(cfg.location.latitude, cfg.location.longitude);
@@ -291,17 +305,7 @@ async function loadDefaultConfig(): Promise<void> {
   waterDepthSlider.value = "0.7";
   waterDepthValue.textContent = "0.7";
 
-  // 水深スライダーの値変更時のイベント
-  waterDepthSlider.addEventListener("input", () => {
-    waterDepthValue.textContent = waterDepthSlider.value;
-    schedulePreviewRefresh();
-  });
-
-  // show-stars / show-clouds 変更時
-  (document.getElementById("show-stars") as HTMLInputElement)
-    .addEventListener("change", schedulePreviewRefresh);
-  (document.getElementById("show-clouds") as HTMLInputElement)
-    .addEventListener("change", schedulePreviewRefresh);
+  bindPreviewSettingsEvents();
 
   // プリセット都市の照合と選択
   syncCityPreset(35.6762, 139.6503);
@@ -426,38 +430,7 @@ async function onSave(e: SubmitEvent): Promise<void> {
   e.preventDefault();
   const status = document.getElementById("status-msg")!;
 
-  const cfg: AppConfig = {
-    location: {
-      name: (document.getElementById("location-name") as HTMLInputElement)
-        .value,
-      latitude: parseFloat(
-        (document.getElementById("latitude") as HTMLInputElement).value,
-      ),
-      longitude: parseFloat(
-        (document.getElementById("longitude") as HTMLInputElement).value,
-      ),
-    },
-    update: {
-      interval_secs: parseInt(
-        (document.getElementById("interval") as HTMLSelectElement).value,
-      ),
-    },
-    image: {
-      width: 1920,
-      height: 1080,
-      show_stars: (document.getElementById("show-stars") as HTMLInputElement)
-        .checked,
-      show_clouds: (document.getElementById("show-clouds") as HTMLInputElement)
-        .checked,
-      water_depth: parseFloat(
-        (document.getElementById("water-depth") as HTMLInputElement).value,
-      ),
-    },
-    behavior: {
-      autostart: (document.getElementById("autostart") as HTMLInputElement)
-        .checked,
-    },
-  };
+  const cfg = buildConfigFromForm();
 
   const validationError = validateConfig(cfg);
   if (validationError !== null) {

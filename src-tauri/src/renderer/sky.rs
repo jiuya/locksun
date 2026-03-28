@@ -283,8 +283,8 @@ pub fn render_ground(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) 
     // 地平線グローのフェード幅 (px)
     let glow_width: u32 = (h as f64 * 0.04).max(8.0) as u32;
 
-    // 太陽の方位角（ラジアン）
-    let sun_azimuth = pos.azimuth;
+    // 太陽の方位角（ラジアン）: pos.azimuth は度なので変換する
+    let sun_azimuth = pos.azimuth.to_radians();
 
     for y in 0..h {
         for x in 0..w {
@@ -294,7 +294,7 @@ pub fn render_ground(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) 
 
                 // 1. 距離による深度効果（強化版）
                 let depth_ratio = (y - ground_y) as f64 / (h - ground_y) as f64;
-                let distance_factor = 1.0 - depth_ratio * 0.5; // 0.3→0.5に強化して暗く
+                let distance_factor = 1.0 - depth_ratio * 0.3;
 
                 // 2. 水深による色調整（新機能！）
                 // 0.0=浅い青緑, 1.0=深い青
@@ -312,19 +312,14 @@ pub fn render_ground(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) 
                 let sky_reflection_y = sky_reflection_y.min(ground_y.saturating_sub(1));
 
                 let sky_pixel = base.get_pixel(x, sky_reflection_y).0;
-                let mut reflected_sky = Color(sky_pixel[0], sky_pixel[1], sky_pixel[2]);
-
-                // 反射色を暗めに調整して白飛び防止
-                reflected_sky.0 = (reflected_sky.0 as f64 * 0.6).round() as u8; // 40%暗く
-                reflected_sky.1 = (reflected_sky.1 as f64 * 0.7).round() as u8; // 30%暗く
-                reflected_sky.2 = (reflected_sky.2 as f64 * 0.8).round() as u8; // 20%暗く
+                let reflected_sky = Color(sky_pixel[0], sky_pixel[1], sky_pixel[2]);
 
                 // 4. 水の基本色と空の反射を混合
                 // 水面反射率: 白飛び防止のため大幅に抑制
                 let reflection_ratio = 0.15 + depth_ratio * 0.1; // 0.3→0.15にさらに削減
                 let mixed_water_color = water_base.lerp(reflected_sky, reflection_ratio);
 
-                // 4. 波紋効果（改良版）
+                // 5. 波紋効果（改良版）
                 let ripple_x = x as f64 * 0.015; // 波長を少し長く
                 let ripple_y = (y - ground_y) as f64 * 0.025;
 
@@ -340,7 +335,7 @@ pub fn render_ground(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) 
                 let ripple_noise = combined_wave * wave_attenuation;
                 let ripple_factor = 1.0 + ripple_noise * 0.06; // 波紋の影響を少し抑制
 
-                // 5. 太陽の反射効果（既存のまま・抑制済み）
+                // 6. 太陽の反射効果（既存のまま・抑制済み）
                 let pixel_azimuth = (x as f64 / w as f64) * std::f64::consts::TAU;
                 let sun_reflection_intensity = if pos.altitude > -6.0 {
                     // 太陽方向への反射強度を計算（円周上の最短角度距離）
@@ -350,23 +345,19 @@ pub fn render_ground(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) 
                     }
 
                     // 反射の幅を大幅に狭くして限定的な反射に
-                    let reflection_width = 0.08 + depth_ratio * 0.02; // より狭い反射範囲（0.15→0.08）
+                    let reflection_width = 0.15 + depth_ratio * 1.5; // より狭い反射範囲（0.15→0.08）
 
                     let reflection_strength = if azimuth_diff < reflection_width {
                         let reflection_t = 1.0 - (azimuth_diff / reflection_width);
 
                         // 太陽高度による最大反射強度（さらに大幅に抑制）
-                        let altitude_factor = ((pos.altitude + 6.0) / 96.0).clamp(0.0, 1.0);
+                        let altitude_factor = pos.altitude;
 
                         // 距離による減衰を強化
-                        let distance_attenuation = 1.0 - depth_ratio * 0.7; // 強化
+                        let distance_attenuation = 1.0 - depth_ratio; // 強化
 
-                        // 最終的な反射強度（極限まで抑制して白飛び完全防止）
-                        let base_reflection =
-                            reflection_t.powf(6.0) * altitude_factor * distance_attenuation;
-
-                        // 安全な上限を設定（絶対に0.01を超えないようにする）
-                        base_reflection.min(0.01) * 0.002 // さらに1/500に削減
+                        // 最終的な反射強度
+                        reflection_t * altitude_factor * distance_attenuation
                     } else {
                         0.0
                     };
@@ -375,7 +366,7 @@ pub fn render_ground(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) 
                     0.0
                 };
 
-                // 6. 最終的な水面色の合成（全体的に暗めに調整）
+                // 7. 最終的な水面色の合成（全体的に暗めに調整）
                 let base_r = (mixed_water_color.0 as f64 * distance_factor * ripple_factor * 0.8) // 全体を20%暗く
                     .clamp(0.0, 255.0);
                 let base_g = (mixed_water_color.1 as f64 * distance_factor * ripple_factor * 0.8)

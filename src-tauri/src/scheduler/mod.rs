@@ -82,6 +82,9 @@ pub fn run_once(app: &AppHandle) -> anyhow::Result<()> {
 fn output_image_path(app: &AppHandle) -> PathBuf {
     app.path()
         .app_cache_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
+        .unwrap_or_else(|_| {
+            log::warn!("アプリキャッシュディレクトリの取得に失敗しました。カレントディレクトリを使用します");
+            PathBuf::from(".")
+        })
         .join("lockscreen.png")
 }

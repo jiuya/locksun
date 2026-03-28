@@ -50,30 +50,25 @@ pub fn get_sun_info() -> Result<SunInfoResponse, String> {
 /// プレビュー用: 現在の設定で画像を生成してbase64を返す
 #[tauri::command]
 pub fn preview_image() -> Result<String, String> {
-    use base64::{engine::general_purpose, Engine as _};
     let cfg = config::load().map_err(|e| e.to_string())?;
     let now = Local::now();
     let pos = SunCalculator::position(&now, cfg.location.latitude, cfg.location.longitude);
-
     let img = crate::renderer::composer::compose(&pos, &cfg.image).map_err(|e| e.to_string())?;
-
-    // PNG として base64 エンコード
-    let mut buf = std::io::Cursor::new(Vec::new());
-    img.write_to(&mut buf, image::ImageFormat::Png)
-        .map_err(|e| e.to_string())?;
-    let encoded = general_purpose::STANDARD.encode(buf.into_inner());
-    Ok(format!("data:image/png;base64,{encoded}"))
+    encode_to_png_base64(img)
 }
 
 /// プレビュー用: 指定した設定で画像を生成してbase64を返す（保存は行わない）
 #[tauri::command]
 pub fn preview_image_with_config(cfg: config::AppConfig) -> Result<String, String> {
-    use base64::{engine::general_purpose, Engine as _};
     let now = Local::now();
     let pos = SunCalculator::position(&now, cfg.location.latitude, cfg.location.longitude);
-
     let img = crate::renderer::composer::compose(&pos, &cfg.image).map_err(|e| e.to_string())?;
+    encode_to_png_base64(img)
+}
 
+/// PNG 画像を base64 DataURL に変換する
+fn encode_to_png_base64(img: image::RgbImage) -> Result<String, String> {
+    use base64::{engine::general_purpose, Engine as _};
     let mut buf = std::io::Cursor::new(Vec::new());
     img.write_to(&mut buf, image::ImageFormat::Png)
         .map_err(|e| e.to_string())?;
