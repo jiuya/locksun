@@ -376,7 +376,7 @@ pub fn render_ground(pos: &SunPosition, cfg: &ImageConfig, base: &mut RgbImage) 
 
                 // 太陽反射を極めて控えめに加算（白飛び防止のため大幅削減）
 
-                let reflection_add = sun_reflection_intensity * 3.0; // さらに少なめに
+                let reflection_add = sun_reflection_intensity * 1.0; // さらに少なめに
                 let final_r = (base_r + reflection_add).clamp(0.0, 255.0) as u8;
                 let final_g = (base_g + reflection_add * 0.9).clamp(0.0, 255.0) as u8;
                 let final_b = (base_b + reflection_add * 0.7).clamp(0.0, 255.0) as u8;

@@ -8,6 +8,7 @@ dist/
 
 # ユーザー設定（機密情報を含む可能性あり）
 config/user_settings.toml
+src-tauri/config/user_settings.toml
 
 # Tauri ビルド成果物
 src-tauri/target/

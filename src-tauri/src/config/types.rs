@@ -13,6 +13,9 @@ pub struct AppConfig {
     pub image: ImageConfig,
     /// 動作設定
     pub behavior: BehaviorConfig,
+    /// Gemini AI 強化設定
+    #[serde(default)]
+    pub gemini: GeminiConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,13 +45,42 @@ pub struct ImageConfig {
     /// 雲エフェクトを表示するか
     pub show_clouds: bool,
     /// 水の深さ (0.0-1.0: 0=浅い青緑, 1=深い青)
+    #[serde(default = "default_water_depth")]
     pub water_depth: f64,
+}
+
+fn default_water_depth() -> f64 {
+    0.7
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BehaviorConfig {
     /// Windows スタートアップに登録するか
     pub autostart: bool,
+}
+
+/// Gemini AI 強化設定
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeminiConfig {
+    /// Gemini API キー（空文字の場合は機能を無効化）
+    pub api_key: String,
+    /// 使用モデル名
+    pub model_name: String,
+    /// 画像加工プロンプト
+    pub enhance_prompt: String,
+    /// AI 強化を有効にするか
+    pub enabled: bool,
+}
+
+impl Default for GeminiConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            model_name: "gemini-2.5-flash-image".to_string(),
+            enhance_prompt: "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality.".to_string(),
+            enabled: false,
+        }
+    }
 }
 
 impl Default for AppConfig {
@@ -68,6 +100,13 @@ impl Default for AppConfig {
                 water_depth: 0.7, // 中程度の深さ（標準的な湖の深さ）
             },
             behavior: BehaviorConfig { autostart: false },
+            gemini: GeminiConfig {
+                api_key: String::new(),
+                model_name: "gemini-2.5-flash-image".to_string(),
+                // NOTE: この文字列は src/api/tauri_commands.ts の MOCK_CONFIG と同期すること
+                enhance_prompt: "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality.".to_string(),
+                enabled: false,
+            },
         }
     }
 }

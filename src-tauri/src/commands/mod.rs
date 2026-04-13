@@ -76,6 +76,41 @@ fn encode_to_png_base64(img: image::RgbImage) -> Result<String, String> {
     Ok(format!("data:image/png;base64,{encoded}"))
 }
 
+/// プレビュー用: AI 強化済み画像を base64 で返す
+#[tauri::command]
+pub async fn preview_image_enhanced() -> Result<String, String> {
+    let cfg = config::load().map_err(|e| e.to_string())?;
+    let now = Local::now();
+    let pos = SunCalculator::position(&now, cfg.location.latitude, cfg.location.longitude);
+    let img = crate::renderer::composer::compose(&pos, &cfg.image).map_err(|e| e.to_string())?;
+
+    // PNG バイト列に変換
+    let png_bytes = {
+        let mut buf = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut buf, image::ImageFormat::Png)
+            .map_err(|e| e.to_string())?;
+        buf.into_inner()
+    };
+
+    // Gemini AI 強化
+    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, png_bytes)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // base64 DataURL に変換
+    use base64::{engine::general_purpose, Engine as _};
+    let encoded = general_purpose::STANDARD.encode(&enhanced);
+    Ok(format!("data:image/png;base64,{encoded}"))
+}
+
+/// 現在の設定で画像を生成してロックスクリーンに即座に適用する
+#[tauri::command]
+pub async fn apply_to_lockscreen(app: tauri::AppHandle) -> Result<(), String> {
+    crate::scheduler::run_once(&app)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// 即時更新をトリガーする（トレイメニューから呼ばれる）
 pub fn trigger_update(state: State<AppState>) {
     state.update_notify.notify_one();

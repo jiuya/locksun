@@ -31,6 +31,22 @@ npm run tauri dev
 npm run tauri build
 ```
 
+## Gemini API キーの設定
+
+Gemini AI 画像強化機能を使う場合は、**APIキーをファイルに直書きせず**環境変数または設定ファイルで管理してください。
+
+```powershell
+# 方法1: 環境変数で設定（推奨）
+$env:GEMINI_API_KEY = "AIza..."
+npm run tauri dev
+
+# 方法2: 設定ファイルで設定（.gitignore 済みのため安全）
+Copy-Item src-tauri\config\user_settings.toml.example src-tauri\config\user_settings.toml
+# user_settings.toml を編集して api_key = "AIza..." を設定
+```
+
+> ⚠️ `src-tauri/config/user_settings.toml` および `config/user_settings.toml` は `.gitignore` に登録されています。APIキーが含まれたファイルを誤ってコミットしないようにしてください。
+
 ## プロジェクト構造
 
 ```

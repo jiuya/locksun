@@ -22,6 +22,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             water_depth: 0.7, // 中程度の深さ
         },
         behavior: config::BehaviorConfig { autostart: false },
+        gemini: config::GeminiConfig {
+            api_key: String::new(),
+            model_name: "gemini-2.0-flash-exp".to_string(),
+            enhance_prompt: String::new(),
+            enabled: false,
+        },
     });
 
     let now = Local::now();

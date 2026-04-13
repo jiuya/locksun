@@ -31,6 +31,13 @@ const MOCK_CONFIG: AppConfig = {
   behavior: {
     autostart: false,
   },
+  gemini: {
+    api_key: "",
+    model_name: "gemini-2.0-flash-exp",
+    enhance_prompt:
+      "Enhance this sky image to look photorealistic, like a high-quality photograph.",
+    enabled: false,
+  },
 };
 
 // Tauri ウィンドウ外（通常ブラウザ）で開いた場合に分かりやすいエラーを出す、またはテスト時はモックを使用
@@ -70,8 +77,13 @@ function handleMockCommand<T>(
       console.log("[MOCK] Config saved:", args);
       return Promise.resolve(undefined as T);
 
+    case "apply_to_lockscreen":
+      console.log("[MOCK] Apply to lockscreen");
+      return Promise.resolve(undefined as T);
+
     case "preview_image":
     case "preview_image_with_config":
+    case "preview_image_enhanced":
       // Base64エンコードされた小さなテスト画像（1x1の青いピクセル）
       const mockImage =
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -116,11 +128,23 @@ export interface BehaviorConfig {
   autostart: boolean;
 }
 
+export interface GeminiConfig {
+  /** Gemini API キー（空文字の場合は機能を無効化） */
+  api_key: string;
+  /** 使用モデル名 */
+  model_name: string;
+  /** 画像加工プロンプト */
+  enhance_prompt: string;
+  /** AI 強化を有効にするか */
+  enabled: boolean;
+}
+
 export interface AppConfig {
   location: LocationConfig;
   update: UpdateConfig;
   image: ImageConfig;
   behavior: BehaviorConfig;
+  gemini: GeminiConfig;
 }
 
 export interface SunPosition {
@@ -157,3 +181,7 @@ export const getSunInfo = (): Promise<SunInfoResponse> =>
 export const previewImage = (): Promise<string> => invoke("preview_image");
 export const previewImageWithConfig = (cfg: AppConfig): Promise<string> =>
   invoke("preview_image_with_config", { cfg });
+export const previewImageEnhanced = (): Promise<string> =>
+  invoke("preview_image_enhanced");
+export const applyToLockscreen = (): Promise<void> =>
+  invoke("apply_to_lockscreen");

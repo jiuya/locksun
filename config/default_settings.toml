@@ -18,3 +18,9 @@ water_depth = 0.7
 
 [behavior]
 autostart = false
+
+[gemini]
+api_key = ""
+model_name = "gemini-2.0-flash-exp"
+enhance_prompt = "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality."
+enabled = false
