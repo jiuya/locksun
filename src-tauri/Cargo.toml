@@ -49,14 +49,16 @@ anyhow.workspace = true
 # 非同期ランタイム
 tokio = { version = "1", features = ["full"] }
 
+# HTTP クライアント（Gemini API 通信用）
+reqwest = { version = "0.12", features = ["json"] }
+
 [[example]]
 name = "generate_test_image"
 path = "examples/generate_test_image.rs"
 
-# 非同期
-tokio = { version = "1", features = ["full"] }
-
-reqwest.workspace = true
+[[example]]
+name = "generate_gemini_test"
+path = "examples/generate_gemini_test.rs"
 
 # Windows API
 [target.'cfg(target_os = "windows")'.dependencies]

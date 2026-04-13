@@ -85,7 +85,7 @@ impl Default for AppConfig {
             behavior: BehaviorConfig { autostart: false },
             gemini: GeminiConfig {
                 api_key: String::new(),
-                model_name: "gemini-2.0-flash-exp".to_string(),
+                model_name: "gemini-2.5-flash-image".to_string(),
                 // NOTE: この文字列は src/api/tauri_commands.ts の MOCK_CONFIG と同期すること
                 enhance_prompt: "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality.".to_string(),
                 enabled: false,

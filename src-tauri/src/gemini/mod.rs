@@ -24,10 +24,7 @@ pub async fn enhance_image(config: &GeminiConfig, png_bytes: Vec<u8>) -> Result<
         ));
     }
 
-    log::info!(
-        "Gemini AI 強化を実行中 (model: {})",
-        config.model_name
-    );
+    log::info!("Gemini AI 強化を実行中 (model: {})", config.model_name);
 
     client::enhance_image(
         &config.api_key,
@@ -46,7 +43,7 @@ mod tests {
     fn disabled_config() -> GeminiConfig {
         GeminiConfig {
             api_key: String::new(),
-            model_name: "gemini-2.0-flash-exp".to_string(),
+            model_name: "gemini-2.5-flash-image".to_string(),
             enhance_prompt: "test prompt".to_string(),
             enabled: false,
         }
@@ -55,7 +52,7 @@ mod tests {
     fn enabled_no_key_config() -> GeminiConfig {
         GeminiConfig {
             api_key: String::new(),
-            model_name: "gemini-2.0-flash-exp".to_string(),
+            model_name: "gemini-2.5-flash-image".to_string(),
             enhance_prompt: "test prompt".to_string(),
             enabled: true,
         }

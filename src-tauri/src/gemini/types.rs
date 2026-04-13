@@ -38,6 +38,7 @@ pub enum Part {
 /// インライン画像データ（base64 エンコード）
 #[derive(Debug, Serialize)]
 pub struct InlineData {
+    #[serde(rename = "mimeType")]
     pub mime_type: String,
     pub data: String,
 }
@@ -45,6 +46,7 @@ pub struct InlineData {
 /// 生成設定
 #[derive(Debug, Serialize)]
 pub struct GenerationConfig {
+    #[serde(rename = "responseModalities")]
     pub response_modalities: Vec<String>,
 }
 
@@ -75,12 +77,14 @@ pub struct ResponseContent {
 #[derive(Debug, Deserialize)]
 pub struct ResponsePart {
     pub text: Option<String>,
+    #[serde(rename = "inlineData")]
     pub inline_data: Option<ResponseInlineData>,
 }
 
 /// レスポンスインライン画像
 #[derive(Debug, Deserialize)]
 pub struct ResponseInlineData {
+    #[serde(rename = "mimeType")]
     pub mime_type: Option<String>,
     pub data: Option<String>,
 }

@@ -1,6 +1,6 @@
 [location]
 latitude = 35.6762
-longitude = 0.0
+longitude = 139.6503
 name = "東京"
 
 [update]
@@ -15,3 +15,9 @@ water_depth = 0.7
 
 [behavior]
 autostart = false
+
+[gemini]
+api_key = "AIzaSyAVe3lqgKDDeb_-QWDFp-X0quwjYAZ5IWQ"
+model_name = "gemini-2.5-flash-image"
+enhance_prompt = "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality."
+enabled = true
