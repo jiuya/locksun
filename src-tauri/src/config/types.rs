@@ -13,6 +13,8 @@ pub struct AppConfig {
     pub image: ImageConfig,
     /// 動作設定
     pub behavior: BehaviorConfig,
+    /// Gemini AI 強化設定
+    pub gemini: GeminiConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +53,19 @@ pub struct BehaviorConfig {
     pub autostart: bool,
 }
 
+/// Gemini AI 強化設定
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeminiConfig {
+    /// Gemini API キー（空文字の場合は機能を無効化）
+    pub api_key: String,
+    /// 使用モデル名
+    pub model_name: String,
+    /// 画像加工プロンプト
+    pub enhance_prompt: String,
+    /// AI 強化を有効にするか
+    pub enabled: bool,
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -68,6 +83,13 @@ impl Default for AppConfig {
                 water_depth: 0.7, // 中程度の深さ（標準的な湖の深さ）
             },
             behavior: BehaviorConfig { autostart: false },
+            gemini: GeminiConfig {
+                api_key: String::new(),
+                model_name: "gemini-2.0-flash-exp".to_string(),
+                // NOTE: この文字列は src/api/tauri_commands.ts の MOCK_CONFIG と同期すること
+                enhance_prompt: "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality.".to_string(),
+                enabled: false,
+            },
         }
     }
 }

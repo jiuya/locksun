@@ -38,3 +38,6 @@ env_logger = "0.11"
 # エラーハンドリング
 thiserror = "2"
 anyhow = "1"
+
+# HTTP クライアント（Gemini API 呼び出し用）
+reqwest = { version = "0.12", features = ["json"] }

@@ -3,7 +3,7 @@
 // - 設定された interval_secs ごとに画像を再生成・適用する
 // - アプリ設定の変更を検知して即時更新する
 
-use crate::{commands::AppState, config, lockscreen, renderer, sun::SunCalculator};
+use crate::{commands::AppState, config, gemini, lockscreen, renderer, sun::SunCalculator};
 use chrono::Local;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
@@ -16,7 +16,7 @@ pub async fn start(app: AppHandle) {
     let notify = app.state::<AppState>().update_notify.clone();
 
     loop {
-        if let Err(e) = run_once(&app) {
+        if let Err(e) = run_once(&app).await {
             // Windows のみ: 権限エラーを検知してトレイ通知する（1回のみ）
             #[cfg(target_os = "windows")]
             {
@@ -57,8 +57,8 @@ pub async fn start(app: AppHandle) {
     }
 }
 
-/// 1回の更新サイクル: 太陽位置計算 → 画像生成 → ロックスクリーン適用
-pub fn run_once(app: &AppHandle) -> anyhow::Result<()> {
+/// 1回の更新サイクル: 太陽位置計算 → 画像生成 → (Gemini AI 強化) → ロックスクリーン適用
+pub async fn run_once(app: &AppHandle) -> anyhow::Result<()> {
     let cfg = config::load()?;
     let now = Local::now();
 
@@ -72,6 +72,24 @@ pub fn run_once(app: &AppHandle) -> anyhow::Result<()> {
 
     let output_path = output_image_path(app);
     renderer::render_and_save(&pos, &cfg.image, &output_path)?;
+
+    // Gemini AI 強化が有効な場合は画像を加工する
+    if cfg.gemini.enabled && !cfg.gemini.api_key.is_empty() {
+        let png_bytes = std::fs::read(&output_path)?;
+        match gemini::enhance_image(&cfg.gemini, png_bytes).await {
+            Ok(enhanced_bytes) => {
+                std::fs::write(&output_path, &enhanced_bytes)?;
+                log::info!("Gemini AI 強化済み画像を保存しました");
+            }
+            Err(e) => {
+                // AI 強化に失敗しても通知してループは継続する
+                log::error!("Gemini AI 強化に失敗しました（元の画像を使用）: {e:#}");
+                if let Some(tray) = app.tray_by_id("main") {
+                    let _ = tray.set_tooltip(Some("⚠️ Locksun: Gemini AI 強化に失敗しました"));
+                }
+            }
+        }
+    }
 
     lockscreen::set_lockscreen_image(&output_path)?;
 
@@ -88,3 +106,4 @@ fn output_image_path(app: &AppHandle) -> PathBuf {
         })
         .join("lockscreen.png")
 }
+

@@ -4,6 +4,7 @@
 
 pub mod commands;
 pub mod config;
+pub mod gemini;
 pub mod lockscreen;
 pub mod renderer;
 pub mod scheduler;
@@ -109,6 +110,7 @@ pub fn run() {
             commands::get_sun_info,
             commands::preview_image,
             commands::preview_image_with_config,
+            commands::preview_image_enhanced,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri アプリの起動に失敗しました");

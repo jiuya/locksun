@@ -6,6 +6,7 @@ import {
   getConfig,
   getSunInfo,
   previewImage,
+  previewImageEnhanced,
   previewImageWithConfig,
   saveConfig,
 } from "../api/tauri_commands.js";
@@ -13,6 +14,8 @@ import {
 // 自動プレビューデバウンスタイマー (ms)
 const PREVIEW_DEBOUNCE_MS = 600;
 let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+// 読み込み済みの Gemini API キー（UI では非表示にするため別途保持）
+let loadedGeminiApiKey = "";
 
 /** フォームの現在値から AppConfig を構築する */
 function buildConfigFromForm(): AppConfig {
@@ -42,6 +45,13 @@ function buildConfigFromForm(): AppConfig {
     },
     behavior: {
       autostart: (document.getElementById("autostart") as HTMLInputElement).checked,
+    },
+    gemini: {
+      // API キー入力欄が空の場合は既存のキーを保持する
+      api_key: (document.getElementById("gemini-api-key") as HTMLInputElement).value || loadedGeminiApiKey,
+      model_name: (document.getElementById("gemini-model") as HTMLInputElement).value,
+      enhance_prompt: (document.getElementById("gemini-prompt") as HTMLTextAreaElement).value,
+      enabled: (document.getElementById("gemini-enabled") as HTMLInputElement).checked,
     },
   };
 }
@@ -199,6 +209,31 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
         </div>
       </section>
 
+      <section class="form-section">
+        <h2>✨ Gemini AI 強化</h2>
+        <div class="field-row checkbox-row">
+          <label>
+            <input type="checkbox" id="gemini-enabled" />
+            AI による画像強化を有効にする
+          </label>
+        </div>
+        <div class="field-row">
+          <label>API キー</label>
+          <input type="password" id="gemini-api-key" placeholder="AIzaSy..." autocomplete="off" />
+        </div>
+        <div class="field-row">
+          <label>モデル名</label>
+          <input type="text" id="gemini-model" placeholder="gemini-2.0-flash-exp" />
+        </div>
+        <div class="field-row">
+          <label>強化プロンプト</label>
+          <textarea id="gemini-prompt" rows="3" placeholder="Enhance this sky image to look photorealistic..."></textarea>
+        </div>
+        <div class="field-row">
+          <button type="button" id="btn-ai-preview" class="btn btn-secondary">AI強化プレビュー</button>
+        </div>
+      </section>
+
       <div class="form-actions">
         <button type="button" id="btn-preview" class="btn btn-secondary">プレビュー更新</button>
         <button type="submit" class="btn btn-primary">設定を保存</button>
@@ -233,6 +268,10 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
     .getElementById("btn-preview")!
     .addEventListener("click", refreshPreview);
 
+  document
+    .getElementById("btn-ai-preview")!
+    .addEventListener("click", refreshAiPreview);
+
   const form = document.getElementById("settings-form")!;
   form.addEventListener("submit", onSave);
   // input 要素での Enter キーによるフォーム送信（ページリロード）を防ぐ
@@ -262,6 +301,19 @@ async function loadAndBindConfig(): Promise<void> {
     cfg.image.show_clouds;
   (document.getElementById("autostart") as HTMLInputElement).checked =
     cfg.behavior.autostart;
+
+  // Gemini 設定の復元
+  (document.getElementById("gemini-enabled") as HTMLInputElement).checked =
+    cfg.gemini.enabled;
+  // API キーはセキュリティのため表示しない（プレースホルダーで存在を示す）
+  loadedGeminiApiKey = cfg.gemini.api_key;
+  const apiKeyInput = document.getElementById("gemini-api-key") as HTMLInputElement;
+  apiKeyInput.placeholder = cfg.gemini.api_key ? "••••••••（設定済み）" : "AIzaSy...";
+  apiKeyInput.value = "";
+  (document.getElementById("gemini-model") as HTMLInputElement).value =
+    cfg.gemini.model_name;
+  (document.getElementById("gemini-prompt") as HTMLTextAreaElement).value =
+    cfg.gemini.enhance_prompt;
 
   // 水深スライダーの設定
   const waterDepthSlider = document.getElementById(
@@ -294,6 +346,13 @@ async function loadDefaultConfig(): Promise<void> {
   (document.getElementById("show-stars") as HTMLInputElement).checked = true;
   (document.getElementById("show-clouds") as HTMLInputElement).checked = false;
   (document.getElementById("autostart") as HTMLInputElement).checked = false;
+
+  // Gemini のデフォルト値
+  (document.getElementById("gemini-enabled") as HTMLInputElement).checked = false;
+  (document.getElementById("gemini-api-key") as HTMLInputElement).value = "";
+  (document.getElementById("gemini-model") as HTMLInputElement).value = "gemini-2.0-flash-exp";
+  (document.getElementById("gemini-prompt") as HTMLTextAreaElement).value =
+    "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality.";
 
   // 水深のデフォルト値
   const waterDepthSlider = document.getElementById(
@@ -375,6 +434,18 @@ async function refreshPreview(): Promise<void> {
     } else {
       el.innerHTML = `<div class="preview-error">プレビュー生成失敗: ${e}</div>`;
     }
+  }
+}
+
+async function refreshAiPreview(): Promise<void> {
+  const el = document.getElementById("sky-preview")!;
+  el.innerHTML = `<div class="preview-loading">AI 強化中...</div>`;
+  try {
+    const dataUrl = await previewImageEnhanced();
+    el.innerHTML = `<img src="${dataUrl}" alt="AI 強化済み空のプレビュー" />`;
+  } catch (e) {
+    console.error("AI 強化プレビューエラー:", e);
+    el.innerHTML = `<div class="preview-error">AI 強化プレビュー失敗: ${e}</div>`;
   }
 }
 
