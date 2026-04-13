@@ -78,23 +78,37 @@ function handleMockCommand<T>(
       return Promise.resolve(undefined as T);
 
     case "apply_to_lockscreen":
+    case "apply_to_lockscreen_with_config":
       console.log("[MOCK] Apply to lockscreen");
       return Promise.resolve(undefined as T);
 
     case "preview_image":
     case "preview_image_with_config":
     case "preview_image_enhanced":
+    case "preview_image_enhanced_with_config":
       // Base64エンコードされた小さなテスト画像（1x1の青いピクセル）
       const mockImage =
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
       return Promise.resolve(mockImage as T);
 
-    case "calculate_sun_position":
-      const mockSunPosition = {
-        altitude: 45.0,
-        azimuth: 180.0,
+    case "get_sun_info":
+    case "get_sun_info_for_config": {
+      const mockSunInfo = {
+        position: { altitude: 45.0, azimuth: 180.0 },
+        times: {
+          astronomical_dawn: null,
+          civil_dawn: null,
+          sunrise: new Date().toISOString(),
+          solar_noon: new Date().toISOString(),
+          sunset: new Date().toISOString(),
+          civil_dusk: null,
+          astronomical_dusk: null,
+        },
+        phase: "Day",
+        location_name: "東京",
       };
-      return Promise.resolve(mockSunPosition as T);
+      return Promise.resolve(mockSunInfo as T);
+    }
 
     default:
       console.warn(`[MOCK] Unhandled command: ${cmd}`);
@@ -178,10 +192,17 @@ export const saveConfig = (cfg: AppConfig): Promise<void> =>
   invoke("save_config", { cfg });
 export const getSunInfo = (): Promise<SunInfoResponse> =>
   invoke("get_sun_info");
+export const getSunInfoForConfig = (cfg: AppConfig): Promise<SunInfoResponse> =>
+  invoke("get_sun_info_for_config", { cfg });
 export const previewImage = (): Promise<string> => invoke("preview_image");
 export const previewImageWithConfig = (cfg: AppConfig): Promise<string> =>
   invoke("preview_image_with_config", { cfg });
 export const previewImageEnhanced = (): Promise<string> =>
   invoke("preview_image_enhanced");
+export const previewImageEnhancedWithConfig = (
+  cfg: AppConfig,
+): Promise<string> => invoke("preview_image_enhanced_with_config", { cfg });
 export const applyToLockscreen = (): Promise<void> =>
   invoke("apply_to_lockscreen");
+export const applyToLockscreenWithConfig = (cfg: AppConfig): Promise<void> =>
+  invoke("apply_to_lockscreen_with_config", { cfg });

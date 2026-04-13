@@ -3,11 +3,10 @@
 
 import {
   type AppConfig,
-  applyToLockscreen,
+  applyToLockscreenWithConfig,
   getConfig,
-  getSunInfo,
-  previewImage,
-  previewImageEnhanced,
+  getSunInfoForConfig,
+  previewImageEnhancedWithConfig,
   previewImageWithConfig,
   saveConfig,
 } from "../api/tauri_commands.js";
@@ -67,8 +66,21 @@ function buildConfigFromForm(): AppConfig {
   };
 }
 
+/** 未保存インジケーターを表示する */
+function markDirty(): void {
+  const indicator = document.getElementById("dirty-indicator");
+  if (indicator) indicator.style.display = "inline";
+}
+
+/** 未保存インジケーターを非表示にする */
+function clearDirty(): void {
+  const indicator = document.getElementById("dirty-indicator");
+  if (indicator) indicator.style.display = "none";
+}
+
 /** デバウンス付きプレビュー自動更新 */
 function schedulePreviewRefresh(): void {
+  markDirty();
   if (previewDebounceTimer !== null) {
     clearTimeout(previewDebounceTimer);
   }
@@ -246,6 +258,7 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
       </section>
 
       <div class="form-actions">
+        <span id="dirty-indicator" class="dirty-indicator" style="display:none">● 未保存の変更があります</span>
         <button type="button" id="btn-preview" class="btn btn-secondary">プレビュー更新</button>
         <button type="button" id="btn-apply-lockscreen" class="btn btn-primary">ロックスクリーンに適用</button>
         <button type="submit" class="btn btn-primary">設定を保存</button>
@@ -296,6 +309,9 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
       e.preventDefault();
     }
   });
+  // フォームの任意の変更でダーティ状態にする（programmatic な value 変更は発火しない）
+  form.addEventListener("input", markDirty);
+  form.addEventListener("change", markDirty);
 }
 
 async function loadAndBindConfig(): Promise<void> {
@@ -439,7 +455,8 @@ async function refreshPreview(): Promise<void> {
   const el = document.getElementById("sky-preview")!;
   el.innerHTML = `<div class="preview-loading">生成中...</div>`;
   try {
-    const dataUrl = await previewImage();
+    const cfg = buildConfigFromForm();
+    const dataUrl = await previewImageWithConfig(cfg);
     el.innerHTML = `<img src="${dataUrl}" alt="空のプレビュー" />`;
   } catch (e) {
     console.error("プレビュー生成エラー:", e);
@@ -464,7 +481,8 @@ async function refreshAiPreview(): Promise<void> {
   const el = document.getElementById("sky-preview")!;
   el.innerHTML = `<div class="preview-loading">AI 強化中...</div>`;
   try {
-    const dataUrl = await previewImageEnhanced();
+    const cfg = buildConfigFromForm();
+    const dataUrl = await previewImageEnhancedWithConfig(cfg);
     el.innerHTML = `<img src="${dataUrl}" alt="AI 強化済み空のプレビュー" />`;
   } catch (e) {
     console.error("AI 強化プレビューエラー:", e);
@@ -480,7 +498,8 @@ async function applyLockscreen(): Promise<void> {
   btn.disabled = true;
   btn.textContent = "適用中...";
   try {
-    await applyToLockscreen();
+    const cfg = buildConfigFromForm();
+    await applyToLockscreenWithConfig(cfg);
     status.textContent = "✅ ロックスクリーンに適用しました";
     status.className = "status-msg success";
     setTimeout(() => {
@@ -499,7 +518,8 @@ async function applyLockscreen(): Promise<void> {
 async function refreshSunInfo(): Promise<void> {
   const el = document.getElementById("sun-info")!;
   try {
-    const info = await getSunInfo();
+    const cfg = buildConfigFromForm();
+    const info = await getSunInfoForConfig(cfg);
     const sr = info.times.sunrise
       ? new Date(info.times.sunrise).toLocaleTimeString("ja-JP")
       : "---";
@@ -562,6 +582,7 @@ async function onSave(e: SubmitEvent): Promise<void> {
 
   try {
     await saveConfig(cfg);
+    clearDirty();
     status.textContent = "✅ 設定を保存しました";
     status.className = "status-msg success";
     setTimeout(() => {

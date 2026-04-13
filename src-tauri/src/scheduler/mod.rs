@@ -60,6 +60,11 @@ pub async fn start(app: AppHandle) {
 /// 1回の更新サイクル: 太陽位置計算 → 画像生成 → (Gemini AI 強化) → ロックスクリーン適用
 pub async fn run_once(app: &AppHandle) -> anyhow::Result<()> {
     let cfg = config::load()?;
+    run_once_with_config(app, &cfg).await
+}
+
+/// 指定した設定を使って1回の更新サイクルを実行する（ファイル保存なし）
+pub async fn run_once_with_config(app: &AppHandle, cfg: &config::AppConfig) -> anyhow::Result<()> {
     let now = Local::now();
 
     let pos = SunCalculator::position(&now, cfg.location.latitude, cfg.location.longitude);
@@ -71,15 +76,16 @@ pub async fn run_once(app: &AppHandle) -> anyhow::Result<()> {
     );
 
     let output_path = output_image_path(app);
-    renderer::render_and_save(&pos, &cfg.image, &output_path)?;
 
-    // Gemini AI 強化が有効な場合は画像を加工する
-    if cfg.gemini.enabled && !cfg.gemini.api_key.is_empty() {
-        let png_bytes = std::fs::read(&output_path)?;
-        match gemini::enhance_image(&cfg.gemini, &pos, png_bytes).await {
+    // ベース画像を PNG バイト列としてインメモリ生成（example と同じ方式）
+    let base_png = renderer::render_to_bytes(&pos, &cfg.image)?;
+
+    // Gemini AI 強化が有効な場合は画像を加工する（失敗時はベース画像にフォールバック）
+    let final_bytes = if cfg.gemini.enabled && !cfg.gemini.api_key.is_empty() {
+        match gemini::enhance_image(&cfg.gemini, &pos, &base_png).await {
             Ok(enhanced_bytes) => {
-                std::fs::write(&output_path, &enhanced_bytes)?;
                 log::info!("Gemini AI 強化済み画像を保存しました");
+                enhanced_bytes
             }
             Err(e) => {
                 // AI 強化に失敗しても通知してループは継続する
@@ -87,10 +93,14 @@ pub async fn run_once(app: &AppHandle) -> anyhow::Result<()> {
                 if let Some(tray) = app.tray_by_id("main") {
                     let _ = tray.set_tooltip(Some("⚠️ Locksun: Gemini AI 強化に失敗しました"));
                 }
+                base_png
             }
         }
-    }
+    } else {
+        base_png
+    };
 
+    std::fs::write(&output_path, &final_bytes)?;
     lockscreen::set_lockscreen_image(&output_path)?;
 
     Ok(())

@@ -205,3 +205,11 @@ body {
 }
 .status-msg.success { color: #4caf50; }
 .status-msg.error   { color: var(--accent); }
+
+/* 未保存インジケーター */
+.dirty-indicator {
+  flex: 1;
+  color: var(--accent2);
+  font-size: 0.82rem;
+  align-self: center;
+}

@@ -93,7 +93,7 @@ pub async fn preview_image_enhanced() -> Result<String, String> {
     };
 
     // Gemini AI 強化
-    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, png_bytes)
+    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, &png_bytes)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -109,6 +109,55 @@ pub async fn apply_to_lockscreen(app: tauri::AppHandle) -> Result<(), String> {
     crate::scheduler::run_once(&app)
         .await
         .map_err(|e| e.to_string())
+}
+
+/// 指定した設定でロックスクリーンに適用する（ファイル保存なし・プレビューと一致した画像を適用）
+#[tauri::command]
+pub async fn apply_to_lockscreen_with_config(
+    cfg: config::AppConfig,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    crate::scheduler::run_once_with_config(&app, &cfg)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 指定した設定で太陽情報を返す（保存済み設定ではなくフォームの値を使う）
+#[tauri::command]
+pub fn get_sun_info_for_config(cfg: config::AppConfig) -> Result<SunInfoResponse, String> {
+    let now = Local::now();
+    let pos = SunCalculator::position(&now, cfg.location.latitude, cfg.location.longitude);
+    let times = SunCalculator::times(&now, cfg.location.latitude, cfg.location.longitude);
+    let phase = SunCalculator::phase(&now, cfg.location.latitude, cfg.location.longitude);
+    Ok(SunInfoResponse {
+        position: pos,
+        times,
+        phase: format!("{phase:?}"),
+        location_name: cfg.location.name,
+    })
+}
+
+/// プレビュー用: 指定した設定で AI 強化済み画像を base64 で返す
+#[tauri::command]
+pub async fn preview_image_enhanced_with_config(cfg: config::AppConfig) -> Result<String, String> {
+    let now = Local::now();
+    let pos = SunCalculator::position(&now, cfg.location.latitude, cfg.location.longitude);
+    let img = crate::renderer::composer::compose(&pos, &cfg.image).map_err(|e| e.to_string())?;
+
+    let png_bytes = {
+        let mut buf = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut buf, image::ImageFormat::Png)
+            .map_err(|e| e.to_string())?;
+        buf.into_inner()
+    };
+
+    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, &png_bytes)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    use base64::{engine::general_purpose, Engine as _};
+    let encoded = general_purpose::STANDARD.encode(&enhanced);
+    Ok(format!("data:image/png;base64,{encoded}"))
 }
 
 /// 即時更新をトリガーする（トレイメニューから呼ばれる）
