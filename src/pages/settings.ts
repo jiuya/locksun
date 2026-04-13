@@ -3,6 +3,7 @@
 
 import {
   type AppConfig,
+  applyToLockscreen,
   getConfig,
   getSunInfo,
   previewImage,
@@ -21,7 +22,8 @@ let loadedGeminiApiKey = "";
 function buildConfigFromForm(): AppConfig {
   return {
     location: {
-      name: (document.getElementById("location-name") as HTMLInputElement).value,
+      name: (document.getElementById("location-name") as HTMLInputElement)
+        .value,
       latitude: parseFloat(
         (document.getElementById("latitude") as HTMLInputElement).value,
       ),
@@ -37,21 +39,30 @@ function buildConfigFromForm(): AppConfig {
     image: {
       width: 1920,
       height: 1080,
-      show_stars: (document.getElementById("show-stars") as HTMLInputElement).checked,
-      show_clouds: (document.getElementById("show-clouds") as HTMLInputElement).checked,
+      show_stars: (document.getElementById("show-stars") as HTMLInputElement)
+        .checked,
+      show_clouds: (document.getElementById("show-clouds") as HTMLInputElement)
+        .checked,
       water_depth: parseFloat(
         (document.getElementById("water-depth") as HTMLInputElement).value,
       ),
     },
     behavior: {
-      autostart: (document.getElementById("autostart") as HTMLInputElement).checked,
+      autostart: (document.getElementById("autostart") as HTMLInputElement)
+        .checked,
     },
     gemini: {
       // API キー入力欄が空の場合は既存のキーを保持する
-      api_key: (document.getElementById("gemini-api-key") as HTMLInputElement).value || loadedGeminiApiKey,
-      model_name: (document.getElementById("gemini-model") as HTMLInputElement).value,
-      enhance_prompt: (document.getElementById("gemini-prompt") as HTMLTextAreaElement).value,
-      enabled: (document.getElementById("gemini-enabled") as HTMLInputElement).checked,
+      api_key:
+        (document.getElementById("gemini-api-key") as HTMLInputElement).value ||
+        loadedGeminiApiKey,
+      model_name: (document.getElementById("gemini-model") as HTMLInputElement)
+        .value,
+      enhance_prompt: (
+        document.getElementById("gemini-prompt") as HTMLTextAreaElement
+      ).value,
+      enabled: (document.getElementById("gemini-enabled") as HTMLInputElement)
+        .checked,
     },
   };
 }
@@ -108,18 +119,18 @@ interface PresetCity {
 }
 
 const PRESET_CITIES: PresetCity[] = [
-  { name: "東京",     latitude: 35.6762, longitude: 139.6503 },
-  { name: "大阪",     latitude: 34.6937, longitude: 135.5023 },
-  { name: "名古屋",   latitude: 35.1815, longitude: 136.9066 },
-  { name: "札幌",     latitude: 43.0618, longitude: 141.3545 },
-  { name: "仙台",     latitude: 38.2688, longitude: 140.8721 },
-  { name: "広島",     latitude: 34.3853, longitude: 132.4553 },
-  { name: "福岡",     latitude: 33.5904, longitude: 130.4017 },
-  { name: "那覇",     latitude: 26.2124, longitude: 127.6809 },
-  { name: "ニューヨーク", latitude: 40.7128, longitude: -74.0060 },
-  { name: "ロンドン",  latitude: 51.5074, longitude: -0.1278 },
-  { name: "パリ",     latitude: 48.8566, longitude: 2.3522 },
-  { name: "シドニー",  latitude: -33.8688, longitude: 151.2093 },
+  { name: "東京", latitude: 35.6762, longitude: 139.6503 },
+  { name: "大阪", latitude: 34.6937, longitude: 135.5023 },
+  { name: "名古屋", latitude: 35.1815, longitude: 136.9066 },
+  { name: "札幌", latitude: 43.0618, longitude: 141.3545 },
+  { name: "仙台", latitude: 38.2688, longitude: 140.8721 },
+  { name: "広島", latitude: 34.3853, longitude: 132.4553 },
+  { name: "福岡", latitude: 33.5904, longitude: 130.4017 },
+  { name: "那覇", latitude: 26.2124, longitude: 127.6809 },
+  { name: "ニューヨーク", latitude: 40.7128, longitude: -74.006 },
+  { name: "ロンドン", latitude: 51.5074, longitude: -0.1278 },
+  { name: "パリ", latitude: 48.8566, longitude: 2.3522 },
+  { name: "シドニー", latitude: -33.8688, longitude: 151.2093 },
 ];
 
 const CUSTOM_VALUE = "__custom__";
@@ -236,6 +247,7 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
 
       <div class="form-actions">
         <button type="button" id="btn-preview" class="btn btn-secondary">プレビュー更新</button>
+        <button type="button" id="btn-apply-lockscreen" class="btn btn-primary">ロックスクリーンに適用</button>
         <button type="submit" class="btn btn-primary">設定を保存</button>
       </div>
       <div id="status-msg" class="status-msg"></div>
@@ -272,6 +284,10 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
     .getElementById("btn-ai-preview")!
     .addEventListener("click", refreshAiPreview);
 
+  document
+    .getElementById("btn-apply-lockscreen")!
+    .addEventListener("click", applyLockscreen);
+
   const form = document.getElementById("settings-form")!;
   form.addEventListener("submit", onSave);
   // input 要素での Enter キーによるフォーム送信（ページリロード）を防ぐ
@@ -307,8 +323,12 @@ async function loadAndBindConfig(): Promise<void> {
     cfg.gemini.enabled;
   // API キーはセキュリティのため表示しない（プレースホルダーで存在を示す）
   loadedGeminiApiKey = cfg.gemini.api_key;
-  const apiKeyInput = document.getElementById("gemini-api-key") as HTMLInputElement;
-  apiKeyInput.placeholder = cfg.gemini.api_key ? "••••••••（設定済み）" : "AIzaSy...";
+  const apiKeyInput = document.getElementById(
+    "gemini-api-key",
+  ) as HTMLInputElement;
+  apiKeyInput.placeholder = cfg.gemini.api_key
+    ? "••••••••（設定済み）"
+    : "AIzaSy...";
   apiKeyInput.value = "";
   (document.getElementById("gemini-model") as HTMLInputElement).value =
     cfg.gemini.model_name;
@@ -348,9 +368,11 @@ async function loadDefaultConfig(): Promise<void> {
   (document.getElementById("autostart") as HTMLInputElement).checked = false;
 
   // Gemini のデフォルト値
-  (document.getElementById("gemini-enabled") as HTMLInputElement).checked = false;
+  (document.getElementById("gemini-enabled") as HTMLInputElement).checked =
+    false;
   (document.getElementById("gemini-api-key") as HTMLInputElement).value = "";
-  (document.getElementById("gemini-model") as HTMLInputElement).value = "gemini-2.0-flash-exp";
+  (document.getElementById("gemini-model") as HTMLInputElement).value =
+    "gemini-2.0-flash-exp";
   (document.getElementById("gemini-prompt") as HTMLTextAreaElement).value =
     "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality.";
 
@@ -378,8 +400,7 @@ function syncCityPreset(lat: number, lon: number): void {
   const select = document.getElementById("city-preset") as HTMLSelectElement;
   const matched = PRESET_CITIES.find(
     (c) =>
-      Math.abs(c.latitude - lat) < 0.001 &&
-      Math.abs(c.longitude - lon) < 0.001,
+      Math.abs(c.latitude - lat) < 0.001 && Math.abs(c.longitude - lon) < 0.001,
   );
   select.value = matched ? matched.name : CUSTOM_VALUE;
 }
@@ -387,7 +408,9 @@ function syncCityPreset(lat: number, lon: number): void {
 /** 都市選択ドロップダウンと手動入力フィールドのイベントを登録する */
 function bindCityPresetEvents(): void {
   const select = document.getElementById("city-preset") as HTMLSelectElement;
-  const nameInput = document.getElementById("location-name") as HTMLInputElement;
+  const nameInput = document.getElementById(
+    "location-name",
+  ) as HTMLInputElement;
   const latInput = document.getElementById("latitude") as HTMLInputElement;
   const lonInput = document.getElementById("longitude") as HTMLInputElement;
 
@@ -446,6 +469,30 @@ async function refreshAiPreview(): Promise<void> {
   } catch (e) {
     console.error("AI 強化プレビューエラー:", e);
     el.innerHTML = `<div class="preview-error">AI 強化プレビュー失敗: ${e}</div>`;
+  }
+}
+
+async function applyLockscreen(): Promise<void> {
+  const btn = document.getElementById(
+    "btn-apply-lockscreen",
+  ) as HTMLButtonElement;
+  const status = document.getElementById("status-msg")!;
+  btn.disabled = true;
+  btn.textContent = "適用中...";
+  try {
+    await applyToLockscreen();
+    status.textContent = "✅ ロックスクリーンに適用しました";
+    status.className = "status-msg success";
+    setTimeout(() => {
+      status.textContent = "";
+    }, 3000);
+  } catch (e) {
+    console.error("ロックスクリーン適用エラー:", e);
+    status.textContent = `❌ 適用失敗: ${e}`;
+    status.className = "status-msg error";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "ロックスクリーンに適用";
   }
 }
 

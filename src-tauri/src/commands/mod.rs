@@ -93,7 +93,7 @@ pub async fn preview_image_enhanced() -> Result<String, String> {
     };
 
     // Gemini AI 強化
-    let enhanced = crate::gemini::enhance_image(&cfg.gemini, png_bytes)
+    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, png_bytes)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -101,6 +101,14 @@ pub async fn preview_image_enhanced() -> Result<String, String> {
     use base64::{engine::general_purpose, Engine as _};
     let encoded = general_purpose::STANDARD.encode(&enhanced);
     Ok(format!("data:image/png;base64,{encoded}"))
+}
+
+/// 現在の設定で画像を生成してロックスクリーンに即座に適用する
+#[tauri::command]
+pub async fn apply_to_lockscreen(app: tauri::AppHandle) -> Result<(), String> {
+    crate::scheduler::run_once(&app)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// 即時更新をトリガーする（トレイメニューから呼ばれる）

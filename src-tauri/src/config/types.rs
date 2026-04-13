@@ -14,6 +14,7 @@ pub struct AppConfig {
     /// 動作設定
     pub behavior: BehaviorConfig,
     /// Gemini AI 強化設定
+    #[serde(default)]
     pub gemini: GeminiConfig,
 }
 
@@ -44,7 +45,12 @@ pub struct ImageConfig {
     /// 雲エフェクトを表示するか
     pub show_clouds: bool,
     /// 水の深さ (0.0-1.0: 0=浅い青緑, 1=深い青)
+    #[serde(default = "default_water_depth")]
     pub water_depth: f64,
+}
+
+fn default_water_depth() -> f64 {
+    0.7
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,6 +70,17 @@ pub struct GeminiConfig {
     pub enhance_prompt: String,
     /// AI 強化を有効にするか
     pub enabled: bool,
+}
+
+impl Default for GeminiConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            model_name: "gemini-2.5-flash-image".to_string(),
+            enhance_prompt: "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality.".to_string(),
+            enabled: false,
+        }
+    }
 }
 
 impl Default for AppConfig {

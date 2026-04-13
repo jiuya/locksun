@@ -85,8 +85,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cfg.gemini.model_name
     );
     println!("   プロンプト: \"{}\"", cfg.gemini.enhance_prompt);
+    println!(
+        "   太陽フェーズ: {:?} (altitude: {:.1}°)",
+        locksun_lib::sun::SunPhase::from_altitude(pos.altitude),
+        pos.altitude
+    );
 
-    match gemini::enhance_image(&cfg.gemini, png_bytes).await {
+    match gemini::enhance_image(&cfg.gemini, &pos, png_bytes).await {
         Ok(enhanced_bytes) => {
             println!(
                 "✅ Gemini API 成功: {:.1} KB",

@@ -76,7 +76,7 @@ pub async fn run_once(app: &AppHandle) -> anyhow::Result<()> {
     // Gemini AI 強化が有効な場合は画像を加工する
     if cfg.gemini.enabled && !cfg.gemini.api_key.is_empty() {
         let png_bytes = std::fs::read(&output_path)?;
-        match gemini::enhance_image(&cfg.gemini, png_bytes).await {
+        match gemini::enhance_image(&cfg.gemini, &pos, png_bytes).await {
             Ok(enhanced_bytes) => {
                 std::fs::write(&output_path, &enhanced_bytes)?;
                 log::info!("Gemini AI 強化済み画像を保存しました");
@@ -106,4 +106,3 @@ fn output_image_path(app: &AppHandle) -> PathBuf {
         })
         .join("lockscreen.png")
 }
-

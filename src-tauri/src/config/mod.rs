@@ -4,7 +4,9 @@ pub mod types;
 
 use anyhow::Result;
 use std::path::PathBuf;
-pub use types::{AppConfig, BehaviorConfig, GeminiConfig, ImageConfig, LocationConfig, UpdateConfig};
+pub use types::{
+    AppConfig, BehaviorConfig, GeminiConfig, ImageConfig, LocationConfig, UpdateConfig,
+};
 
 /// ユーザー設定ファイルのパスを返す
 /// - リリース時: %APPDATA%\locksun\config.toml

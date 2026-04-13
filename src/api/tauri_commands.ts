@@ -77,6 +77,10 @@ function handleMockCommand<T>(
       console.log("[MOCK] Config saved:", args);
       return Promise.resolve(undefined as T);
 
+    case "apply_to_lockscreen":
+      console.log("[MOCK] Apply to lockscreen");
+      return Promise.resolve(undefined as T);
+
     case "preview_image":
     case "preview_image_with_config":
     case "preview_image_enhanced":
@@ -179,3 +183,5 @@ export const previewImageWithConfig = (cfg: AppConfig): Promise<string> =>
   invoke("preview_image_with_config", { cfg });
 export const previewImageEnhanced = (): Promise<string> =>
   invoke("preview_image_enhanced");
+export const applyToLockscreen = (): Promise<void> =>
+  invoke("apply_to_lockscreen");

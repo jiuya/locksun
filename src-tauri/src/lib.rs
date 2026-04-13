@@ -111,6 +111,7 @@ pub fn run() {
             commands::preview_image,
             commands::preview_image_with_config,
             commands::preview_image_enhanced,
+            commands::apply_to_lockscreen,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri アプリの起動に失敗しました");
