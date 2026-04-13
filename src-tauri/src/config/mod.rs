@@ -26,13 +26,22 @@ pub fn config_path() -> PathBuf {
 /// 設定を読み込む。ファイルが存在しなければデフォルト値を返す
 pub fn load() -> Result<AppConfig> {
     let path = config_path();
-    if path.exists() {
+    let mut cfg = if path.exists() {
         let content = std::fs::read_to_string(&path)?;
         let cfg: AppConfig = toml::from_str(&content)?;
-        Ok(cfg)
+        cfg
     } else {
-        Ok(AppConfig::default())
+        AppConfig::default()
+    };
+
+    // 環境変数 GEMINI_API_KEY が設定されていれば、設定ファイルの値より優先する
+    if let Ok(key) = std::env::var("GEMINI_API_KEY") {
+        if !key.is_empty() {
+            cfg.gemini.api_key = key;
+        }
     }
+
+    Ok(cfg)
 }
 
 /// 設定をファイルに保存する

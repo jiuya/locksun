@@ -1,0 +1,33 @@
+# ユーザー設定のテンプレート
+# このファイルをコピーして user_settings.toml を作成してください:
+#   Copy-Item user_settings.toml.example user_settings.toml
+#
+# ⚠️  user_settings.toml は .gitignore に追加済みです。
+#    APIキーなどの機密情報をコミットしないようにしてください。
+
+[location]
+latitude = 35.6762
+longitude = 139.6503
+name = "東京"
+
+[update]
+interval_secs = 300
+
+[image]
+width = 1920
+height = 1080
+show_stars = true
+show_clouds = false
+water_depth = 0.7
+
+[behavior]
+autostart = false
+
+[gemini]
+# Gemini API キーを設定してください。
+# 環境変数 GEMINI_API_KEY でも設定可能（環境変数が優先されます）。
+# Google AI Studio で取得: https://aistudio.google.com/app/apikey
+api_key = ""
+model_name = "gemini-2.5-flash-image"
+enhance_prompt = "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality."
+enabled = false
