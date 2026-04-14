@@ -2,19 +2,24 @@
 // Tauri コマンド定義
 // フロントエンド (TypeScript) から invoke() で呼び出せる関数群
 
-use crate::{
+use crate::
     config,
     sun::{SunCalculator, SunPosition, SunTimes},
 };
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::State;
 use tokio::sync::Notify;
 
 /// アプリ共有状態
 pub struct AppState {
     pub update_notify: Arc<Notify>,
+    /// 権限エラー通知済みフラグ（重複通知を防ぐ）
+    pub permission_notified: Mutex<bool>,
+    /// プレビュー時に生成した PNG バイト列のキャッシュ
+    /// apply_to_lockscreen_with_config で再生成を避けるために使用する
+    pub cached_preview: Mutex<Option<Vec<u8>>>,
 }
 
 /// 設定を取得する
@@ -57,11 +62,27 @@ pub fn preview_image() -> Result<String, String> {
 
 /// プレビュー用: 指定した設定で画像を生成してbase64を返す（保存は行わない）
 #[tauri::command]
-pub fn preview_image_with_config(cfg: config::AppConfig) -> Result<String, String> {
+pub fn preview_image_with_config(
+    cfg: config::AppConfig,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
     let now = Local::now();
     let pos = SunCalculator::position(&now, cfg.location.latitude, cfg.location.longitude);
     let img = crate::renderer::composer::compose(&pos, &cfg.image).map_err(|e| e.to_string())?;
-    encode_to_png_base64(img)
+
+    // PNG バイト列に変換してキャッシュに保存
+    let png_bytes = {
+        let mut buf = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut buf, image::ImageFormat::Png)
+            .map_err(|e| e.to_string())?;
+        buf.into_inner()
+    };
+
+    // base64 DataURL として返す（encode後にキャッシュに移動して clone を避ける）
+    use base64::{engine::general_purpose, Engine as _};
+    let encoded = general_purpose::STANDARD.encode(&png_bytes);
+    *state.cached_preview.lock().unwrap() = Some(png_bytes);
+    Ok(format!("data:image/png;base64,{encoded}"))
 }
 
 /// PNG 画像を base64 DataURL に変換する
@@ -114,10 +135,22 @@ pub async fn apply_to_lockscreen(app: tauri::AppHandle) -> Result<(), String> {
 pub async fn apply_to_lockscreen_with_config(
     cfg: config::AppConfig,
     app: tauri::AppHandle,
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
-    crate::scheduler::run_once_with_config(&app, &cfg)
-        .await
-        .map_err(|e| e.to_string())
+    // キャッシュされたプレビュー画像があれば再生成せずに使用する
+    let cached = state.cached_preview.lock().unwrap().take();
+    if let Some(png_bytes) = cached {
+        log::info!("キャッシュ済みプレビュー画像をロックスクリーンに適用します");
+        let output_path = crate::scheduler::output_image_path(&app);
+        std::fs::write(&output_path, &png_bytes).map_err(|e| e.to_string())?;
+        crate::lockscreen::set_lockscreen_image(&output_path).map_err(|e| e.to_string())?;
+        Ok(())
+    } else {
+        log::info!("キャッシュなし: 画像を再生成してロックスクリーンに適用します");
+        crate::scheduler::run_once_with_config(&app, &cfg)
+            .await
+            .map_err(|e| e.to_string())
+    }
 }
 
 /// 指定した設定で太陽情報を返す（保存済み設定ではなくフォームの値を使う）
@@ -137,7 +170,10 @@ pub fn get_sun_info_for_config(cfg: config::AppConfig) -> Result<SunInfoResponse
 
 /// プレビュー用: 指定した設定で AI 強化済み画像を base64 で返す
 #[tauri::command]
-pub async fn preview_image_enhanced_with_config(cfg: config::AppConfig) -> Result<String, String> {
+pub async fn preview_image_enhanced_with_config(
+    cfg: config::AppConfig,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
     let now = Local::now();
     let pos = SunCalculator::position(&now, cfg.location.latitude, cfg.location.longitude);
     let img = crate::renderer::composer::compose(&pos, &cfg.image).map_err(|e| e.to_string())?;
@@ -153,8 +189,10 @@ pub async fn preview_image_enhanced_with_config(cfg: config::AppConfig) -> Resul
         .await
         .map_err(|e| e.to_string())?;
 
+    // 強化済みバイト列をキャッシュに保存（encode後に移動して clone を避ける）
     use base64::{engine::general_purpose, Engine as _};
     let encoded = general_purpose::STANDARD.encode(&enhanced);
+    *state.cached_preview.lock().unwrap() = Some(enhanced);
     Ok(format!("data:image/png;base64,{encoded}"))
 }
 

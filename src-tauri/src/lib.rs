@@ -10,7 +10,7 @@ pub mod renderer;
 pub mod scheduler;
 pub mod sun;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -24,6 +24,8 @@ pub fn run() {
     tauri::Builder::default()
         .manage(commands::AppState {
             update_notify: Arc::new(tokio::sync::Notify::new()),
+            permission_notified: Mutex::new(false),
+            cached_preview: Mutex::new(None),
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_autostart::init(

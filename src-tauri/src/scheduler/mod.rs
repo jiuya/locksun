@@ -43,7 +43,14 @@ pub async fn run_once(app: &AppHandle) -> anyhow::Result<()> {
 }
 
 /// 指定した設定を使って1回の更新サイクルを実行する（ファイル保存なし）
+/// スケジューラーから呼ばれる場合はプレビューキャッシュを無効化する
 pub async fn run_once_with_config(app: &AppHandle, cfg: &config::AppConfig) -> anyhow::Result<()> {
+    // スケジューラーによる更新時にはキャッシュを無効化する
+    {
+        let state = app.state::<crate::commands::AppState>();
+        *state.cached_preview.lock().unwrap() = None;
+    }
+
     let now = Local::now();
 
     let pos = SunCalculator::position(&now, cfg.location.latitude, cfg.location.longitude);
@@ -86,7 +93,7 @@ pub async fn run_once_with_config(app: &AppHandle, cfg: &config::AppConfig) -> a
 }
 
 /// 画像出力先パスを返す
-fn output_image_path(app: &AppHandle) -> PathBuf {
+pub fn output_image_path(app: &AppHandle) -> PathBuf {
     app.path()
         .app_cache_dir()
         .unwrap_or_else(|_| {
