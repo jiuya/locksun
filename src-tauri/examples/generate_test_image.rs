@@ -1,7 +1,7 @@
 // src-tauri/examples/generate_test_image.rs
 // テスト用画像生成プログラム
 
-use chrono::Local;
+use chrono::{Local, TimeZone};
 use locksun_lib::{config, renderer, sun::SunCalculator};
 use std::path::Path;
 
@@ -30,9 +30,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     });
 
-    let now = Local::now();
+    // テスト再現性のため時間を固定 (東京 JST 2026-03-09 06:10 ゴールデンアワー)
+    let now = chrono::FixedOffset::east_opt(9 * 3600)
+        .unwrap()
+        .with_ymd_and_hms(2026, 3, 9, 6, 10, 0)
+        .unwrap()
+        .with_timezone(&Local);
     let pos = SunCalculator::position(&now, cfg.location.latitude, cfg.location.longitude);
 
+    println!("固定時刻: {}", now.format("%Y-%m-%d %H:%M:%S JST"));
     println!("太陽位置: 高度={}°, 方位角={}°", pos.altitude, pos.azimuth);
     println!("画像生成中...");
 
