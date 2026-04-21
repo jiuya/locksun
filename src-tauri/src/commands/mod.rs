@@ -8,15 +8,13 @@ use crate::{
 };
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tauri::State;
 use tokio::sync::Notify;
 
 /// アプリ共有状態
 pub struct AppState {
     pub update_notify: Arc<Notify>,
-    /// 権限エラー通知済みフラグ（重複通知を防ぐ）
-    pub permission_notified: Mutex<bool>,
 }
 
 /// 設定を取得する
@@ -93,7 +91,7 @@ pub async fn preview_image_enhanced() -> Result<String, String> {
     };
 
     // Gemini AI 強化
-    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, &png_bytes)
+    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, png_bytes)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -151,7 +149,7 @@ pub async fn preview_image_enhanced_with_config(cfg: config::AppConfig) -> Resul
         buf.into_inner()
     };
 
-    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, &png_bytes)
+    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, png_bytes)
         .await
         .map_err(|e| e.to_string())?;
 

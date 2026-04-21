@@ -10,7 +10,7 @@ pub mod renderer;
 pub mod scheduler;
 pub mod sun;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -24,7 +24,6 @@ pub fn run() {
     tauri::Builder::default()
         .manage(commands::AppState {
             update_notify: Arc::new(tokio::sync::Notify::new()),
-            permission_notified: Mutex::new(false),
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_autostart::init(
@@ -86,15 +85,6 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
-
-            // 起動時権限チェック: 管理者権限がなければトレイツールチップに警告を設定する
-            #[cfg(target_os = "windows")]
-            if !lockscreen::check_permission() {
-                log::warn!("管理者権限なし: ロックスクリーンを変更できません");
-                let _ = _tray.set_tooltip(Some("⚠️ Locksun: 管理者権限が必要です"));
-                let state = app.state::<commands::AppState>();
-                *state.permission_notified.lock().unwrap() = true;
-            }
 
             // スケジューラーをバックグラウンドで開始
             let app_handle = app.handle().clone();
