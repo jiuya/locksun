@@ -2,7 +2,7 @@
 // Tauri コマンド定義
 // フロントエンド (TypeScript) から invoke() で呼び出せる関数群
 
-use crate::
+use crate::{
     config,
     sun::{SunCalculator, SunPosition, SunTimes},
 };
@@ -112,7 +112,7 @@ pub async fn preview_image_enhanced() -> Result<String, String> {
     };
 
     // Gemini AI 強化
-    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, png_bytes)
+    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, &png_bytes)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -185,7 +185,7 @@ pub async fn preview_image_enhanced_with_config(
         buf.into_inner()
     };
 
-    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, png_bytes)
+    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, &png_bytes)
         .await
         .map_err(|e| e.to_string())?;
 
