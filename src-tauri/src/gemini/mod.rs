@@ -60,15 +60,15 @@ fn build_context_prompt(base_prompt: &str, pos: &SunPosition) -> String {
 ///
 /// `pos` を元に時間帯コンテキストをプロンプトに自動付加する。
 /// `config.enabled == false` または `api_key` が空の場合は
-/// 元の `png_bytes` をそのまま返す（既存動作を維持）。
+/// 元の `png_bytes` をそのままコピーして返す。
 pub async fn enhance_image(
     config: &GeminiConfig,
     pos: &SunPosition,
-    png_bytes: Vec<u8>,
+    png_bytes: &[u8],
 ) -> Result<Vec<u8>> {
     if !config.enabled {
         log::info!("Gemini AI 強化は無効です。元の画像を使用します");
-        return Ok(png_bytes);
+        return Ok(png_bytes.to_vec());
     }
 
     if config.api_key.is_empty() {

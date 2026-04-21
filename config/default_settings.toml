@@ -21,6 +21,6 @@ autostart = false
 
 [gemini]
 api_key = ""
-model_name = "gemini-2.0-flash-exp"
+model_name = "gemini-2.5-flash-image"
 enhance_prompt = "Enhance this sky image to look photorealistic, like a high-quality photograph. Preserve the sun position and sky colors but add natural cloud textures, atmospheric haze, and photographic quality."
 enabled = false
