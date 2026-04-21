@@ -61,7 +61,7 @@ pub async fn run_once_with_config(app: &AppHandle, cfg: &config::AppConfig) -> a
 
     // Gemini AI 強化が有効な場合は画像を加工する（失敗時はベース画像にフォールバック）
     let final_bytes = if cfg.gemini.enabled && !cfg.gemini.api_key.is_empty() {
-        match gemini::enhance_image(&cfg.gemini, &pos, &base_png).await {
+        match gemini::enhance_image(&cfg.gemini, &pos, base_png.clone()).await {
             Ok(enhanced_bytes) => {
                 log::info!("Gemini AI 強化済み画像を保存しました");
                 enhanced_bytes

@@ -91,7 +91,7 @@ pub async fn preview_image_enhanced() -> Result<String, String> {
     };
 
     // Gemini AI 強化
-    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, &png_bytes)
+    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, png_bytes)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -149,7 +149,7 @@ pub async fn preview_image_enhanced_with_config(cfg: config::AppConfig) -> Resul
         buf.into_inner()
     };
 
-    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, &png_bytes)
+    let enhanced = crate::gemini::enhance_image(&cfg.gemini, &pos, png_bytes)
         .await
         .map_err(|e| e.to_string())?;
 

@@ -46,8 +46,7 @@
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": "",
-      "uacPrivileges": "administrator"
+      "timestampUrl": ""
     }
   }
 }
